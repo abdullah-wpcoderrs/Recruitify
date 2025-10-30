@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFormSubmissions } from '@/lib/database';
 import * as XLSX from 'xlsx';
 
+import { getForm } from '@/lib/database';
+
 export async function POST(request: NextRequest) {
   try {
     const { formId, format, selectedFields } = await request.json();
@@ -10,8 +12,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Form ID is required' }, { status: 400 });
     }
 
-    // Get form submissions
-    const { data: submissions, error } = await getFormSubmissions(formId);
+    // Get form data and submissions
+    const [formResult, submissionsResult] = await Promise.all([
+      getForm(formId),
+      getFormSubmissions(formId)
+    ]);
+
+    if (formResult.error || !formResult.data) {
+      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+    }
+
+    const { data: submissions, error } = submissionsResult;
     
     if (error) {
       console.error('Error fetching submissions:', error);
@@ -22,17 +33,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No submissions found' }, { status: 404 });
     }
 
+    // Get form fields for proper header mapping
+    const formFields = (formResult.data as Record<string, unknown>)?.fields as Record<string, unknown>[] || [];
+    
     // Process submissions data
-    const processedData = submissions.map((submission: any) => {
-      const row: any = {};
+    const processedData = submissions.map((submission: Record<string, unknown>) => {
+      const row: Record<string, unknown> = {};
       
       // Add timestamp if selected
       if (!selectedFields || selectedFields.includes('timestamp')) {
-        row['Submission Timestamp'] = new Date(submission.submitted_at).toLocaleString();
+        row['Submission Timestamp'] = new Date(submission.submitted_at as string).toLocaleString();
       }
 
-      // Add form data fields
-      if (submission.data) {
+      // Map form fields to submission data using proper field labels as headers
+      if (submission.data && formFields.length > 0) {
+        formFields.forEach((field: Record<string, unknown>) => {
+          const fieldLabel = field.label as string;
+          const fieldId = (field.id as string) || fieldLabel.toLowerCase().replace(/\s+/g, '');
+          
+          // Check if this field should be included in export
+          if (!selectedFields || selectedFields.includes(fieldId as string)) {
+            // Try to find the value in submission data using various possible keys
+            const submissionData = submission.data as Record<string, unknown>;
+            const value = submissionData[fieldLabel] || 
+                       submissionData[fieldId] || 
+                       submissionData[field.name as string] ||
+                       submissionData[fieldLabel.toLowerCase()] ||
+                       submissionData[fieldLabel.toLowerCase().replace(/\s+/g, '')] ||
+                       '';
+            
+            // Use the original field label as the column header
+            row[fieldLabel] = value;
+          }
+        });
+      } else if (submission.data) {
+        // Fallback: use submission data keys directly if no form fields available
         Object.entries(submission.data).forEach(([key, value]) => {
           if (!selectedFields || selectedFields.includes(key.toLowerCase().replace(/\s+/g, ''))) {
             row[key] = value;

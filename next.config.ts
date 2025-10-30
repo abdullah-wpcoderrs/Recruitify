@@ -13,6 +13,24 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.punchng.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'hiilrtwkheqxecchojkj.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   // Enable compression

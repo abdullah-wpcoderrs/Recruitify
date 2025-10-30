@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { Upload, Palette, Type, Image as ImageIcon } from "lucide-react";
+import { Palette, Type, Image as ImageIcon } from "lucide-react";
 import { FormDesign } from "./form-builder";
+import { ImageUpload } from "@/components/ui/image-upload";
 import Image from "next/image";
 
 interface FormDesignPanelProps {
@@ -220,9 +221,11 @@ export function FormDesignPanel({
                   placeholder="https://example.com/logo.png"
                   className="flex-1"
                 />
-                <Button variant="outline" size="sm">
-                  <Upload className="w-4 h-4" />
-                </Button>
+                <ImageUpload
+                  value={design.logoUrl}
+                  onChange={(url) => updateDesign({ logoUrl: url })}
+                  type="logo"
+                />
               </div>
             </div>
 
@@ -235,9 +238,11 @@ export function FormDesignPanel({
                   placeholder="https://example.com/header.jpg"
                   className="flex-1"
                 />
-                <Button variant="outline" size="sm">
-                  <Upload className="w-4 h-4" />
-                </Button>
+                <ImageUpload
+                  value={design.headerImage}
+                  onChange={(url) => updateDesign({ headerImage: url })}
+                  type="header"
+                />
               </div>
             </div>
           </CardContent>
@@ -283,31 +288,54 @@ export function FormDesignPanel({
             >
               {design.logoUrl && (
                 <div className="mb-6 relative h-12">
-                  <Image 
-                    src={design.logoUrl} 
-                    alt="Logo" 
-                    width={200}
-                    height={48}
-                    className="h-12 object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
+                  {design.logoUrl.startsWith('http') && !design.logoUrl.includes('supabase.co') ? (
+                    <img 
+                      src={design.logoUrl} 
+                      alt="Logo" 
+                      className="h-12 object-contain max-w-[200px]"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Image 
+                      src={design.logoUrl} 
+                      alt="Logo" 
+                      width={200}
+                      height={48}
+                      className="h-12 object-contain"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
                 </div>
               )}
 
               {design.headerImage && (
                 <div className="mb-6 -mx-6 -mt-6 relative h-32">
-                  <Image 
-                    src={design.headerImage} 
-                    alt="Header" 
-                    fill
-                    className="object-cover"
-                    style={{ borderRadius: `${design.borderRadius}px ${design.borderRadius}px 0 0` }}
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
+                  {design.headerImage.startsWith('http') && !design.headerImage.includes('supabase.co') ? (
+                    <img 
+                      src={design.headerImage} 
+                      alt="Header" 
+                      className="w-full h-32 object-cover"
+                      style={{ borderRadius: `${design.borderRadius}px ${design.borderRadius}px 0 0` }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <Image 
+                      src={design.headerImage} 
+                      alt="Header" 
+                      fill
+                      className="object-cover"
+                      style={{ borderRadius: `${design.borderRadius}px ${design.borderRadius}px 0 0` }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
                 </div>
               )}
 

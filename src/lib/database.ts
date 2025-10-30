@@ -45,10 +45,11 @@ export const createForm = async (formData: {
     user_id: formData.user_id,
   };
 
+   
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('forms')
-    .insert([insertData] as any)
+    .insert([insertData])
     .select();
 
   if (error) {
@@ -88,14 +89,16 @@ export const updateForm = async (
   // Handle branding object updates
   if (updates.design || updates.settings || updates.steps) {
     // First get current branding
+     
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: currentForm } = await supabase
+    const { data: currentForm } = await (supabase as any)
       .from('forms')
       .select('branding')
       .eq('id', formId)
-      .single() as any;
+      .single();
     
-    const currentBranding = (currentForm?.branding as Record<string, unknown>) || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const currentBranding = ((currentForm as any)?.branding as Record<string, unknown>) || {};
     
     updateData.branding = {
       ...currentBranding,
@@ -174,10 +177,11 @@ export const createSubmission = async (submissionData: {
     user_agent: submissionData.user_agent,
   };
 
+   
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('form_submissions')
-    .insert([insertData] as any)
+    .insert([insertData])
     .select()
     .single();
 

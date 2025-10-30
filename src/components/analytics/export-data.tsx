@@ -23,7 +23,7 @@ export function ExportData({ formId, totalResponses, formFields = [] }: ExportDa
   const fields = [
     { id: 'timestamp', label: 'Submission Timestamp', selected: true },
     ...formFields.map(field => ({
-      id: field.label.toLowerCase().replace(/\s+/g, ''),
+      id: field.id || field.label.toLowerCase().replace(/\s+/g, ''),
       label: field.label,
       selected: true
     }))

@@ -218,6 +218,7 @@ export function FormAnalytics({ formId }: FormAnalyticsProps) {
           setForm(null);
         } else {
           // Process form data from database
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rawFormData = formResult.data as any;
           const submissions = statsResult?.submissions || [];
           

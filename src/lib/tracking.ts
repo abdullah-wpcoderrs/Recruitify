@@ -50,9 +50,10 @@ export const trackFormSubmission = async (
       user_agent: metadata?.userAgent,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const { data, error } = await supabase
       .from('form_submissions')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .insert([insertData] as any)
       .select()
       .single();
