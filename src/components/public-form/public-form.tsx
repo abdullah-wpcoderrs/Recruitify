@@ -53,6 +53,7 @@ interface PublicFormData {
       primaryColor?: string;
       backgroundColor?: string;
       logoUrl?: string;
+      headerImage?: string;
       textColor?: string;
       borderRadius?: number;
       fontFamily?: string;
@@ -353,6 +354,7 @@ export function PublicForm({ form }: PublicFormProps) {
               maxSize={field.maxFileSize || 10}
               multiple={field.allowMultiple || false}
               value={fileData[field.id] || []}
+              formId={form.id}
               onFileChange={(files) => {
                 setFileData(prev => ({ ...prev, [field.id]: files }));
                 // Update form data with file URLs for validation
@@ -403,7 +405,7 @@ export function PublicForm({ form }: PublicFormProps) {
 
   return (
     <div 
-      className="min-h-screen py-12 px-4"
+      className="min-h-screen"
       style={{ 
         backgroundColor: design.backgroundColor,
         color: design.textColor,
@@ -413,6 +415,14 @@ export function PublicForm({ form }: PublicFormProps) {
       }}
     >
       <div className="max-w-2xl mx-auto">
+        {/* Form Container with proper spacing */}
+        <div className="px-4 py-8"
+          style={{
+            backgroundColor: design.backgroundColor !== '#ffffff' ? 'rgba(255, 255, 255, 0.95)' : 'transparent',
+            borderRadius: `${design.borderRadius || 6}px`,
+            marginTop: design.headerImage ? '2rem' : '3rem'
+          }}
+        >
         {/* Preview Banner */}
         {isPreview && (
           <div className="mb-6">
@@ -427,15 +437,43 @@ export function PublicForm({ form }: PublicFormProps) {
 
         {/* Header */}
         <div className="text-center mb-8">
+          {design.headerImage && (
+            <div className="mb-8 -mx-4 -mt-8 relative h-40">
+              {design.headerImage.startsWith('http') && !design.headerImage.includes('supabase.co') ? (
+                <img 
+                  src={design.headerImage} 
+                  alt="Header" 
+                  className="w-full h-40 object-cover"
+                  style={{ borderRadius: `${design.borderRadius || 6}px ${design.borderRadius || 6}px 0 0` }}
+                />
+              ) : (
+                <Image 
+                  src={design.headerImage} 
+                  alt="Header" 
+                  fill
+                  className="object-cover"
+                  style={{ borderRadius: `${design.borderRadius || 6}px ${design.borderRadius || 6}px 0 0` }}
+                />
+              )}
+            </div>
+          )}
           {design.logoUrl && (
             <div className="relative h-12 mb-4 flex justify-center">
-              <Image 
-                src={design.logoUrl} 
-                alt="Logo" 
-                width={200}
-                height={48}
-                className="h-12 object-contain"
-              />
+              {design.logoUrl.startsWith('http') && !design.logoUrl.includes('supabase.co') ? (
+                <img 
+                  src={design.logoUrl} 
+                  alt="Logo" 
+                  className="h-12 object-contain max-w-[200px]"
+                />
+              ) : (
+                <Image 
+                  src={design.logoUrl} 
+                  alt="Logo" 
+                  width={200}
+                  height={48}
+                  className="h-12 object-contain"
+                />
+              )}
             </div>
           )}
           <h1 className="text-3xl font-bold mb-2">{form.title}</h1>
@@ -528,6 +566,7 @@ export function PublicForm({ form }: PublicFormProps) {
             </form>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

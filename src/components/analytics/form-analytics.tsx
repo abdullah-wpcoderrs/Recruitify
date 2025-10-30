@@ -637,11 +637,60 @@ export function FormAnalytics({ formId }: FormAnalyticsProps) {
                               </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                              {Object.entries(submission.data || {}).map(([key, value]) => (
-                                <div key={key}>
-                                  <span className="font-medium">{key}:</span> {String(value)}
-                                </div>
-                              ))}
+                              {Object.entries(submission.data || {}).map(([key, value]) => {
+                                // Find the field label for this key
+                                const field = form?.fields?.find(f => f.id === key || f.label === key);
+                                const fieldLabel = field?.label || key;
+                                
+                                // Handle file uploads - show download links instead of [object Object]
+                                let displayValue: React.ReactNode = String(value);
+                                if (typeof value === 'object' && value !== null) {
+                                  if (Array.isArray(value)) {
+                                    // Handle file arrays
+                                    const fileLinks = value.map((item: any, idx: number) => {
+                                      if (typeof item === 'object' && item.url) {
+                                        return (
+                                          <a 
+                                            key={idx}
+                                            href={item.url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:text-blue-800 underline"
+                                          >
+                                            📎 {item.name || `File ${idx + 1}`}
+                                          </a>
+                                        );
+                                      }
+                                      return String(item);
+                                    });
+                                    displayValue = <div className="flex flex-wrap gap-2">{fileLinks}</div>;
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                  } else if ((value as any).url) {
+                                    // Handle single file object
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    const fileItem = value as any;
+                                    displayValue = (
+                                      <a 
+                                        href={fileItem.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 hover:text-blue-800 underline"
+                                      >
+                                        📎 {fileItem.name || 'File'}
+                                      </a>
+                                    );
+                                  } else {
+                                    displayValue = JSON.stringify(value);
+                                  }
+                                }
+                                
+                                return (
+                                  <div key={key}>
+                                    <span className="font-medium">{fieldLabel}:</span>{' '}
+                                    {displayValue}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         ))}

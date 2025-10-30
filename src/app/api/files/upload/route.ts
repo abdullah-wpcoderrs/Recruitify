@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('form-files')
+      .from('form-uploads')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false,
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
-      .from('form-files')
+      .from('form-uploads')
       .getPublicUrl(filePath);
 
     // Save file record to database (if formId is provided)
@@ -126,7 +126,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete from storage
     const { error: deleteError } = await supabase.storage
-      .from('form-files')
+      .from('form-uploads')
       .remove([filePath]);
 
     if (deleteError) {

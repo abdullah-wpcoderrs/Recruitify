@@ -31,6 +31,7 @@ interface FileUploadProps {
   disabled?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  formId?: string; // For public form uploads
 }
 
 export interface UploadedFile {
@@ -57,7 +58,7 @@ const ALLOWED_FILE_TYPES = {
 };
 
 export function FileUpload({
-  fieldId: _fieldId,
+  fieldId,
   label: _label,
   required: _required = false,
   accept = ".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.zip",
@@ -69,6 +70,7 @@ export function FileUpload({
   disabled = false,
   className = "",
   style = {},
+  formId,
 }: FileUploadProps) {
   const [files, setFiles] = useState<UploadedFile[]>(value);
   const [isDragging, setIsDragging] = useState(false);
@@ -105,27 +107,49 @@ export function FileUpload({
   };
 
   const uploadFileToSupabase = async (file: File, _uploadedFile: UploadedFile): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `form-uploads/${fileName}`;
+    if (formId) {
+      // Use public form upload API for anonymous uploads
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fieldId', fieldId);
+      formData.append('formId', formId);
 
-    const { error } = await supabase.storage
-      .from('form-files')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
+      const response = await fetch('/api/forms/upload', {
+        method: 'POST',
+        body: formData,
       });
 
-    if (error) {
-      throw new Error(`Upload failed: ${error.message}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      return result.file.url;
+    } else {
+      // Use direct Supabase upload for authenticated users
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `form-uploads/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from('form-uploads')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('form-uploads')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
     }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('form-files')
-      .getPublicUrl(filePath);
-
-    return publicUrl;
   };
 
   const handleFiles = useCallback(async (fileList: FileList) => {

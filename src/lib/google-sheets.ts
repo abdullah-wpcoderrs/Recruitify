@@ -154,7 +154,29 @@ export const appendToSpreadsheet = async (
   try {
     // Prepare row data in the same order as headers
     const timestamp = new Date().toISOString();
-    const rowData = [timestamp, ...headers.map(header => data[header] || '')];
+    const rowData = [timestamp, ...headers.map(header => {
+      let value = data[header] || '';
+      
+      // Handle file uploads - convert to download URLs
+      if (typeof value === 'object' && value !== null) {
+        if (Array.isArray(value)) {
+          // Handle file arrays
+          value = value.map((item: any) => {
+            if (typeof item === 'object' && item.url) {
+              return item.url;
+            }
+            return String(item);
+          }).join(', ');
+        } else if ((value as any).url) {
+          // Handle single file object
+          value = (value as any).url;
+        } else {
+          value = JSON.stringify(value);
+        }
+      }
+      
+      return String(value);
+    })];
 
     await client.spreadsheets.values.append({
       spreadsheetId,

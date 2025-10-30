@@ -55,12 +55,30 @@ export async function POST(request: NextRequest) {
           if (!selectedFields || selectedFields.includes(fieldId as string)) {
             // Try to find the value in submission data using various possible keys
             const submissionData = submission.data as Record<string, unknown>;
-            const value = submissionData[fieldLabel] || 
+            let value = submissionData[fieldLabel] || 
                        submissionData[fieldId] || 
                        submissionData[field.name as string] ||
                        submissionData[fieldLabel.toLowerCase()] ||
                        submissionData[fieldLabel.toLowerCase().replace(/\s+/g, '')] ||
                        '';
+            
+            // Handle file uploads - convert to download URLs
+            if (typeof value === 'object' && value !== null) {
+              if (Array.isArray(value)) {
+                // Handle file arrays
+                value = value.map((item: any) => {
+                  if (typeof item === 'object' && item.url) {
+                    return item.url;
+                  }
+                  return String(item);
+                }).join(', ');
+              } else if ((value as any).url) {
+                // Handle single file object
+                value = (value as any).url;
+              } else {
+                value = JSON.stringify(value);
+              }
+            }
             
             // Use the original field label as the column header
             row[fieldLabel] = value;
@@ -70,6 +88,21 @@ export async function POST(request: NextRequest) {
         // Fallback: use submission data keys directly if no form fields available
         Object.entries(submission.data).forEach(([key, value]) => {
           if (!selectedFields || selectedFields.includes(key.toLowerCase().replace(/\s+/g, ''))) {
+            // Handle file uploads in fallback case too
+            if (typeof value === 'object' && value !== null) {
+              if (Array.isArray(value)) {
+                value = value.map((item: any) => {
+                  if (typeof item === 'object' && item.url) {
+                    return item.url;
+                  }
+                  return String(item);
+                }).join(', ');
+              } else if ((value as any).url) {
+                value = (value as any).url;
+              } else {
+                value = JSON.stringify(value);
+              }
+            }
             row[key] = value;
           }
         });
