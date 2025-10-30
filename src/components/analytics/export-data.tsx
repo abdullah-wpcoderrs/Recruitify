@@ -6,27 +6,79 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
 
+interface FormField {
+  id: string;
+  label: string;
+  type: string;
+}
+
 interface ExportDataProps {
   formId: string;
   totalResponses: number;
+  formFields?: FormField[];
 }
 
-export function ExportData({ formId, totalResponses }: ExportDataProps) {
-  const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'pdf'>('csv');
-
+export function ExportData({ formId, totalResponses, formFields = [] }: ExportDataProps) {
+  // Generate fields list from form fields
   const fields = [
     { id: 'timestamp', label: 'Submission Timestamp', selected: true },
-    { id: 'fullname', label: 'Full Name', selected: true },
-    { id: 'email', label: 'Email Address', selected: true },
-    { id: 'experience', label: 'Experience Level', selected: true },
-    { id: 'location', label: 'Preferred Work Location', selected: true },
-    { id: 'motivation', label: 'Why do you want to work here?', selected: false },
+    ...formFields.map(field => ({
+      id: field.label.toLowerCase().replace(/\s+/g, ''),
+      label: field.label,
+      selected: true
+    }))
   ];
 
-  const handleExport = () => {
-    // In a real app, this would trigger the actual export
-    console.log('Exporting data...', { formId, selectedFields, exportFormat });
+  const [selectedFields, setSelectedFields] = useState<string[]>(
+    fields.filter(f => f.selected).map(f => f.id)
+  );
+  const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | 'pdf'>('csv');
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    
+    try {
+      const response = await fetch('/api/forms/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formId,
+          format: exportFormat,
+          selectedFields: selectedFields.length > 0 ? selectedFields : null
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      if (exportFormat === 'csv' || exportFormat === 'xlsx') {
+        // Handle file download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `form-responses-${formId}.${exportFormat}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        // Handle JSON response for other formats
+        const data = await response.json();
+        console.log('Export data:', data);
+        alert('PDF export is not yet implemented. Please use CSV or Excel format.');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('Export failed. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -98,9 +150,9 @@ export function ExportData({ formId, totalResponses }: ExportDataProps) {
               {totalResponses} responses ready for export
             </span>
           </div>
-          <Button onClick={handleExport} className="w-full">
+          <Button onClick={handleExport} className="w-full" disabled={isExporting}>
             <Download className="w-4 h-4 mr-2" />
-            Export {totalResponses} Responses
+            {isExporting ? 'Exporting...' : `Export ${totalResponses} Responses`}
           </Button>
         </div>
       </CardContent>

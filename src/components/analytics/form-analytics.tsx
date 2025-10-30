@@ -95,86 +95,116 @@ interface TrendData {
 
 const COLORS = ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0'];
 
+// Calculate submission trend from submissions
+const calculateSubmissionTrend = (submissions: Submission[]): TrendData[] => {
+  if (!submissions || submissions.length === 0) {
+    return [];
+  }
+
+  // Group submissions by date
+  const submissionsByDate: Record<string, number> = {};
+  
+  submissions.forEach(sub => {
+    if (sub.submitted_at) {
+      const date = new Date(sub.submitted_at).toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      submissionsByDate[date] = (submissionsByDate[date] || 0) + 1;
+    }
+  });
+
+  // Convert to array format for chart and sort by date
+  return Object.entries(submissionsByDate)
+    .map(([date, submissions]) => ({
+      date,
+      submissions
+    }))
+    .sort((a, b) => new Date(a.date + ', 2024').getTime() - new Date(b.date + ', 2024').getTime());
+};
+
+// Calculate field analytics from submissions
+const calculateFieldAnalytics = (field: FormField, submissions: Submission[]): FormField => {
+  if (!submissions || submissions.length === 0) {
+    return { ...field, responses: 0, analytics: [] };
+  }
+
+  // Try multiple ways to match field data
+  const possibleKeys = [
+    field.label,
+    field.id,
+    field.label?.toLowerCase(),
+    field.label?.replace(/\s+/g, '_'),
+    field.label?.replace(/\s+/g, '-')
+  ].filter(Boolean);
+
+  let responses = 0;
+  let matchingKey = '';
+
+  // Find the key that has the most matches
+  for (const key of possibleKeys) {
+    const count = submissions.filter(sub => 
+      sub.data && 
+      sub.data[key] !== undefined && 
+      sub.data[key] !== null && 
+      sub.data[key] !== ''
+    ).length;
+    
+    if (count > responses) {
+      responses = count;
+      matchingKey = key;
+    }
+  }
+
+  console.log(`Field "${field.label}" (${field.type}): ${responses} responses using key "${matchingKey}"`);
+  console.log('Available submission keys:', submissions.length > 0 ? Object.keys(submissions[0].data || {}) : 'No submissions');
+
+  if (field.type === 'select' && field.options && matchingKey) {
+    // Calculate analytics for select fields
+    const optionCounts: Record<string, number> = {};
+    
+    submissions.forEach(sub => {
+      const value = sub.data?.[matchingKey];
+      if (value && field.options?.includes(value as string)) {
+        optionCounts[value as string] = (optionCounts[value as string] || 0) + 1;
+      }
+    });
+
+    const analytics = field.options?.map((option: string) => ({
+      option,
+      count: optionCounts[option] || 0,
+      percentage: responses > 0 ? ((optionCounts[option] || 0) / responses) * 100 : 0
+    }));
+
+    return { ...field, responses, analytics };
+  }
+
+  if (field.type === 'textarea' && matchingKey) {
+    // Calculate average length for textarea
+    let totalLength = 0;
+    let count = 0;
+    
+    submissions.forEach(sub => {
+      const value = sub.data?.[matchingKey];
+      if (value && typeof value === 'string') {
+        totalLength += value.length;
+        count++;
+      }
+    });
+
+    const avgLength = count > 0 ? Math.round(totalLength / count) : 0;
+    return { ...field, responses, avgLength };
+  }
+
+  return { ...field, responses };
+};
+
 export function FormAnalytics({ formId }: FormAnalyticsProps) {
   const [timeRange, setTimeRange] = useState("7d");
   const [form, setForm] = useState<FormData | null>(null);
   const [stats, setStats] = useState<FormStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [submissionTrend, setSubmissionTrend] = useState<TrendData[]>([]);
-  
-  // Calculate submission trend from submissions
-  const calculateSubmissionTrend = (submissions: Submission[]) => {
-    if (!submissions || submissions.length === 0) {
-      return [];
-    }
-
-    // Group submissions by date
-    const submissionsByDate: Record<string, number> = {};
-    
-    submissions.forEach(sub => {
-      if (sub.submitted_at) {
-        const date = new Date(sub.submitted_at).toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric' 
-        });
-        submissionsByDate[date] = (submissionsByDate[date] || 0) + 1;
-      }
-    });
-
-    // Convert to array format for chart
-    return Object.entries(submissionsByDate).map(([date, submissions]) => ({
-      date,
-      submissions
-    }));
-  };
-
-  // Calculate field analytics from submissions
-  const calculateFieldAnalytics = (field: FormField, submissions: Submission[]) => {
-    if (!submissions || submissions.length === 0) {
-      return { ...field, responses: 0, analytics: [] };
-    }
-
-    const responses = submissions.filter(sub => sub.data && sub.data[field.label]).length;
-
-    if (field.type === 'select' && field.options) {
-      // Calculate analytics for select fields
-      const optionCounts: Record<string, number> = {};
-      
-      submissions.forEach(sub => {
-        const value = sub.data?.[field.label];
-        if (value && field.options?.includes(value as string)) {
-          optionCounts[value as string] = (optionCounts[value as string] || 0) + 1;
-        }
-      });
-
-      const analytics = field.options?.map((option: string) => ({
-        option,
-        count: optionCounts[option] || 0,
-        percentage: responses > 0 ? ((optionCounts[option] || 0) / responses) * 100 : 0
-      }));
-
-      return { ...field, responses, analytics };
-    }
-
-    if (field.type === 'textarea') {
-      // Calculate average length for textarea
-      let totalLength = 0;
-      let count = 0;
-      
-      submissions.forEach(sub => {
-        const value = sub.data?.[field.label];
-        if (value && typeof value === 'string') {
-          totalLength += value.length;
-          count++;
-        }
-      });
-
-      const avgLength = count > 0 ? Math.round(totalLength / count) : 0;
-      return { ...field, responses, avgLength };
-    }
-
-    return { ...field, responses };
-  };
 
   const loadFormData = useCallback(async () => {
       try {
@@ -187,15 +217,29 @@ export function FormAnalytics({ formId }: FormAnalyticsProps) {
           console.error('Error loading form:', formResult.error);
           setForm(null);
         } else {
-          // Calculate analytics for each field
-          const formData = formResult.data as unknown as FormData & { fields?: FormField[] };
+          // Process form data from database
+          const rawFormData = formResult.data as any;
           const submissions = statsResult?.submissions || [];
           
-          if (formData.fields && Array.isArray(formData.fields)) {
-            formData.fields = formData.fields.map((field: FormField) => 
-              calculateFieldAnalytics(field, submissions)
-            );
+          // Extract fields from the database structure
+          let fields: FormField[] = [];
+          if (rawFormData.fields && Array.isArray(rawFormData.fields)) {
+            fields = rawFormData.fields;
           }
+          
+          // Calculate analytics for each field
+          const processedFields = fields.map((field: FormField) => 
+            calculateFieldAnalytics(field, submissions)
+          );
+          
+          // Create properly structured form data
+          const formData: FormData = {
+            title: rawFormData.title,
+            description: rawFormData.description,
+            google_sheet_url: rawFormData.google_sheet_url,
+            google_sheet_last_sync: rawFormData.google_sheet_last_sync,
+            fields: processedFields
+          };
           
           setForm(formData);
           
@@ -211,7 +255,7 @@ export function FormAnalytics({ formId }: FormAnalyticsProps) {
       } finally {
         setLoading(false);
       }
-  }, [formId, calculateFieldAnalytics, calculateSubmissionTrend]);
+  }, [formId]);
 
   useEffect(() => {
     loadFormData();
@@ -611,7 +655,11 @@ export function FormAnalytics({ formId }: FormAnalyticsProps) {
                 </Card>
               </div>
               <div>
-                <ExportData formId={formId} totalResponses={stats?.totalSubmissions || 0} />
+                <ExportData 
+                  formId={formId} 
+                  totalResponses={stats?.totalSubmissions || 0}
+                  formFields={form?.fields || []}
+                />
               </div>
             </div>
           </TabsContent>
