@@ -1,0 +1,123 @@
+
+> recruitify@0.1.0 lint
+> eslint
+
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\app\forms\[id]\page.tsx
+  15:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\app\page.tsx
+   18:10  warning  'LoadingShimmer' is defined but never used  @typescript-eslint/no-unused-vars
+   19:10  warning  'SectionLoader' is defined but never used   @typescript-eslint/no-unused-vars
+   24:38  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   26:69  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  125:64  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  136:46  error    Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\analytics\form-analytics.tsx
+    8:3   warning  'BarChart' is defined but never used                             @typescript-eslint/no-unused-vars
+    9:3   warning  'Bar' is defined but never used                                  @typescript-eslint/no-unused-vars
+   31:3   warning  'Loader2' is defined but never used                              @typescript-eslint/no-unused-vars
+   38:10  warning  'LoadingShimmer' is defined but never used                       @typescript-eslint/no-unused-vars
+   40:19  warning  'getFormSubmissions' is defined but never used                   @typescript-eslint/no-unused-vars
+   52:36  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   53:38  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   55:58  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   58:50  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   84:43  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   84:61  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  144:47  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  148:59  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  172:40  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  196:49  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  201:54  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  210:47  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  289:57  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  289:78  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  536:61  error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\analytics\google-sheets-integration.tsx
+   40:36  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   41:46  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   44:11  warning  'user' is assigned a value but never used                                                                        @typescript-eslint/no-unused-vars
+   48:6   warning  React Hook useEffect has a missing dependency: 'loadFormData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   58:20  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+   59:38  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  138:48  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  152:15  warning  'spreadsheet' is assigned a value but never used                                                                 @typescript-eslint/no-unused-vars
+  175:48  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  199:19  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+  484:51  error    Unexpected any. Specify a different type                                                                         @typescript-eslint/no-explicit-any
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\auth\auth-form.tsx
+  52:13  warning  'data' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  70:13  warning  'data' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\form-builder\form-builder.tsx
+  101:10  warning  'showPreview' is assigned a value but never used                                                            @typescript-eslint/no-unused-vars
+  101:23  warning  'setShowPreview' is assigned a value but never used                                                         @typescript-eslint/no-unused-vars
+  178:33  error    Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  220:36  error    Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  252:17  warning  'data' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  281:30  error    Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  282:52  error    Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  286:21  error    Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+  295:24  warning  React Hook useCallback received a function whose dependencies are unknown. Pass an inline function instead  react-hooks/exhaustive-deps
+  326:15  warning  'data' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+  340:21  error    Unexpected any. Specify a different type                                                                    @typescript-eslint/no-explicit-any
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\form-builder\form-design-panel.tsx
+  285:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+  298:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\form-builder\form-preview-modal.tsx
+  158:15  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\form-builder\form-settings-panel.tsx
+   21:16  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+   62:6   warning  React Hook useEffect has a missing dependency: 'checkGoogleSheetsStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   80:6   warning  React Hook useEffect has a missing dependency: 'checkGoogleSheetsStatus'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  159:46  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+  193:46  error    Unexpected any. Specify a different type                                                                                    @typescript-eslint/no-explicit-any
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\form-builder\multi-step-manager.tsx
+  126:10  warning  'editingStep' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  126:23  warning  'setEditingStep' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  164:33  error    Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  344:41  warning  'index' is defined but never used                    @typescript-eslint/no-unused-vars
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\public-form\public-form.tsx
+   11:10   warning  'Badge' is defined but never used                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   19:3    warning  'Upload' is defined but never used                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   30:9    error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   38:59   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   85:34   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   89:47   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   90:40   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  108:24   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  157:33   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  209:21   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  217:31   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  381:111  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                                                                                                                                                                          react/no-unescaped-entities
+  390:13   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\ui\button.tsx
+  38:32  warning  'asChild' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\components\ui\file-upload.tsx
+   60:3   warning  'fieldId' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+   61:3   warning  'label' is defined but never used                                                                                  @typescript-eslint/no-unused-vars
+   62:3   warning  'required' is assigned a value but never used                                                                      @typescript-eslint/no-unused-vars
+  107:51  warning  'uploadedFile' is defined but never used                                                                           @typescript-eslint/no-unused-vars
+  112:13  warning  'data' is assigned a value but never used                                                                          @typescript-eslint/no-unused-vars
+  192:23  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  207:6   warning  React Hook useCallback has a missing dependency: 'validateFile'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\HomePC\Documents\WFG Form\recruitify\src\lib\google-sheets.ts
+  258:14  warning  'err' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 88 problems (52 errors, 36 warnings)
+
