@@ -2,7 +2,10 @@ import { google } from 'googleapis';
 import { supabase } from './supabase';
 
 // Google Sheets API configuration
-const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+const SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/drive.readonly' // Add Drive API for listing spreadsheets
+];
 
 export interface GoogleSheetsConfig {
   spreadsheetId: string;
@@ -12,21 +15,30 @@ export interface GoogleSheetsConfig {
 
 // Create OAuth2 client
 export const createOAuth2Client = () => {
+  // Use NEXTAUTH_URL if available, otherwise construct from current environment
+  const baseUrl = process.env.NEXTAUTH_URL || 
+                  (process.env.NODE_ENV === 'production' 
+                    ? 'https://your-domain.com' // Replace with your production domain
+                    : 'http://localhost:3000');
+  
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.NEXTAUTH_URL}/api/auth/google/callback`
+    `${baseUrl}/api/auth/google/callback`
   );
 };
 
 // Generate OAuth URL for Google Sheets access
-export const getGoogleSheetsAuthUrl = (userId: string) => {
+export const getGoogleSheetsAuthUrl = (userId: string, formId?: string) => {
   const oauth2Client = createOAuth2Client();
+  
+  // Include both userId and formId in state for proper redirect
+  const state = JSON.stringify({ userId, formId });
   
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
-    state: userId, // Pass user ID to identify the user after OAuth
+    state, // Pass user ID and form ID to identify context after OAuth
     prompt: 'consent', // Force consent screen to get refresh token
   });
 };
@@ -318,19 +330,46 @@ export const connectToExistingSpreadsheet = async (
   }
 };
 
-// List user's spreadsheets (optional feature)
+// List user's spreadsheets using Google Drive API
 export const listUserSpreadsheets = async (userId: string) => {
-  const { client, error } = await getAuthenticatedSheetsClient(userId);
-  
-  if (error || !client) {
-    return { spreadsheets: [], error: error || 'Failed to get authenticated client' };
+  // Get user's Google tokens
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile, error } = await (supabase as any)
+    .from('profiles')
+    .select('google_access_token, google_refresh_token')
+    .eq('id', userId)
+    .single();
+
+  if (error || !profile?.google_access_token) {
+    return { spreadsheets: [], error: 'No Google authentication found' };
   }
 
+  const oauth2Client = createOAuth2Client();
+  oauth2Client.setCredentials({
+    access_token: profile.google_access_token,
+    refresh_token: profile.google_refresh_token,
+  });
+
   try {
-    // Note: Google Sheets API doesn't have a direct "list spreadsheets" endpoint
-    // This would require Google Drive API to list files with mimeType application/vnd.google-apps.spreadsheet
-    // For now, we'll return empty array and rely on URL input
-    return { spreadsheets: [], error: null };
+    const drive = google.drive({ version: 'v3', auth: oauth2Client });
+    
+    // List Google Sheets files
+    const response = await drive.files.list({
+      q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+      fields: 'files(id,name,webViewLink,modifiedTime,createdTime)',
+      orderBy: 'modifiedTime desc',
+      pageSize: 50, // Limit to 50 most recent spreadsheets
+    });
+
+    const spreadsheets = response.data.files?.map(file => ({
+      id: file.id!,
+      name: file.name!,
+      url: file.webViewLink!,
+      modifiedTime: file.modifiedTime!,
+      createdTime: file.createdTime!,
+    })) || [];
+
+    return { spreadsheets, error: null };
   } catch (error) {
     console.error('Error listing spreadsheets:', error);
     return { spreadsheets: [], error };

@@ -137,7 +137,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
     }
     
     try {
-      const response = await fetch(`/api/auth/google?userId=${user.id}`);
+      const response = await fetch(`/api/auth/google?userId=${user.id}&formId=${formId}`);
       const data = await response.json();
       
       if (response.ok && data.authUrl) {

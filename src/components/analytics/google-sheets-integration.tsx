@@ -16,7 +16,8 @@ import {
   Link as LinkIcon,
   Unlink,
   FileSpreadsheet,
-  Loader2
+  Loader2,
+  X
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { getForm } from "@/lib/database";
@@ -46,11 +47,23 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
     lastUpdated?: string;
   }
 
+  interface UserSpreadsheet {
+    id: string;
+    name: string;
+    url: string;
+    modifiedTime: string;
+    createdTime: string;
+  }
+
   const [syncing, setSyncing] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showConnectExisting, setShowConnectExisting] = useState(false);
+  const [showSpreadsheetList, setShowSpreadsheetList] = useState(false);
   const [existingSheetUrl, setExistingSheetUrl] = useState('');
+  const [userSpreadsheets, setUserSpreadsheets] = useState<UserSpreadsheet[]>([]);
+  const [loadingSpreadsheets, setLoadingSpreadsheets] = useState(false);
+  const [hasGoogleAccess, setHasGoogleAccess] = useState(false);
   const [form, setForm] = useState<FormWithSheets | null>(null);
   const [sheetInfo, setSheetInfo] = useState<SheetInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,8 +72,9 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
 
   useEffect(() => {
     loadFormData();
+    checkGoogleAccess();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formId]);
+  }, [formId, _user]);
 
   const loadFormData = async () => {
     try {
@@ -91,6 +105,40 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
       }
     } catch (err) {
       console.error('Error loading sheet info:', err);
+    }
+  };
+
+  const checkGoogleAccess = async () => {
+    if (!_user) return;
+    
+    try {
+      const response = await fetch('/api/sheets/status');
+      if (response.ok) {
+        const { hasAccess } = await response.json();
+        setHasGoogleAccess(hasAccess);
+        
+        // If user has access, load their spreadsheets
+        if (hasAccess) {
+          await loadUserSpreadsheets();
+        }
+      }
+    } catch (err) {
+      console.error('Error checking Google access:', err);
+    }
+  };
+
+  const loadUserSpreadsheets = async () => {
+    setLoadingSpreadsheets(true);
+    try {
+      const response = await fetch('/api/sheets/list');
+      if (response.ok) {
+        const { spreadsheets } = await response.json();
+        setUserSpreadsheets(spreadsheets);
+      }
+    } catch (err) {
+      console.error('Error loading spreadsheets:', err);
+    } finally {
+      setLoadingSpreadsheets(false);
     }
   };
 
@@ -125,12 +173,17 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
   };
 
   const handleConnect = async () => {
+    if (!_user) {
+      setError('User not authenticated');
+      return;
+    }
+
     setConnecting(true);
     setError(null);
     
     try {
-      // First, get Google OAuth URL
-      const authResponse = await fetch('/api/auth/google');
+      // First, get Google OAuth URL with userId and formId
+      const authResponse = await fetch(`/api/auth/google?userId=${_user.id}&formId=${formId}`);
       if (!authResponse.ok) throw new Error('Failed to get auth URL');
       
       const { authUrl } = await authResponse.json();
@@ -226,6 +279,48 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
     }
   };
 
+  const handleConnectFromList = async (spreadsheet: UserSpreadsheet) => {
+    if (!form) {
+      setError('Form data not available');
+      return;
+    }
+
+    setConnecting(true);
+    setError(null);
+    
+    try {
+      const headers = form.fields?.map((field) => field.label) || [];
+      
+      const response = await fetch('/api/sheets/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formId,
+          spreadsheetUrl: spreadsheet.url,
+          headers,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to connect to spreadsheet');
+      }
+      
+      toast.success(`Successfully connected to "${spreadsheet.name}"!`);
+      
+      // Reload form data
+      await loadFormData();
+      setShowSpreadsheetList(false);
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error.message || 'Failed to connect to spreadsheet');
+      console.error(err);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   const handleDisconnect = async () => {
     if (!confirm('Are you sure you want to disconnect this Google Sheet? This will not delete the spreadsheet, but form submissions will no longer sync automatically.')) {
       return;
@@ -312,7 +407,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
             <div className="grid grid-cols-2 gap-2">
               <Button 
                 onClick={handleCreateSheet} 
-                disabled={connecting}
+                disabled={connecting || !hasGoogleAccess}
                 variant="outline"
               >
                 {connecting ? (
@@ -334,6 +429,18 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
                 Connect Existing
               </Button>
             </div>
+
+            {hasGoogleAccess && (
+              <Button 
+                onClick={() => setShowSpreadsheetList(true)} 
+                disabled={connecting}
+                variant="outline"
+                className="w-full mt-2"
+              >
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                Choose from My Spreadsheets
+              </Button>
+            )}
           </div>
 
           {/* Connect Existing Sheet Modal */}
@@ -385,6 +492,72 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
               </div>
             </div>
           )}
+
+          {/* Spreadsheet List Modal */}
+          {showSpreadsheetList && (
+            <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">Choose from Your Spreadsheets</h4>
+                <Button 
+                  onClick={() => setShowSpreadsheetList(false)} 
+                  variant="ghost" 
+                  size="sm"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              
+              {loadingSpreadsheets ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Loading spreadsheets...
+                </div>
+              ) : userSpreadsheets.length > 0 ? (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {userSpreadsheets.map((spreadsheet) => (
+                    <div 
+                      key={spreadsheet.id} 
+                      className="flex items-center justify-between p-3 bg-white rounded border hover:bg-gray-50"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{spreadsheet.name}</p>
+                        <p className="text-xs text-gray-500">
+                          Modified: {new Date(spreadsheet.modifiedTime).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-3">
+                        <Button
+                          onClick={() => window.open(spreadsheet.url, '_blank')}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={() => handleConnectFromList(spreadsheet)}
+                          disabled={connecting}
+                          size="sm"
+                        >
+                          {connecting ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            'Connect'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <FileSpreadsheet className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600">No spreadsheets found</p>
+                  <p className="text-xs text-gray-500">Create a new one or connect an existing sheet by URL</p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="text-xs text-gray-500">
             <p>• Real-time data synchronization</p>
             <p>• Automatic column mapping</p>
