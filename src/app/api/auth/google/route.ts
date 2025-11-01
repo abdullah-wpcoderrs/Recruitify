@@ -6,13 +6,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const formId = searchParams.get('formId');
+    const source = searchParams.get('source') as 'builder' | 'analytics' | null;
     
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // Generate Google OAuth URL with form context
-    const authUrl = getGoogleSheetsAuthUrl(userId, formId || undefined);
+    // Generate Google OAuth URL with form context and source
+    const authUrl = getGoogleSheetsAuthUrl(userId, formId || undefined, source || undefined);
     
     return NextResponse.json({ authUrl });
   } catch (error) {

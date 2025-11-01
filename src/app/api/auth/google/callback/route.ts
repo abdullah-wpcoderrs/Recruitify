@@ -8,14 +8,16 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state'); // This contains user ID and form ID
     const error = searchParams.get('error');
 
-    // Parse state to get userId and formId
+    // Parse state to get userId, formId, and source
     let userId: string;
     let formId: string | null = null;
+    let source: 'builder' | 'analytics' | null = null;
     
     try {
       const stateData = JSON.parse(state || '{}');
       userId = stateData.userId;
       formId = stateData.formId;
+      source = stateData.source;
     } catch {
       // Fallback for old format (just userId)
       userId = state || '';
@@ -24,7 +26,12 @@ export async function GET(request: NextRequest) {
     // Determine redirect URL based on context
     const getRedirectUrl = (params: string) => {
       if (formId) {
-        return new URL(`/analytics/${formId}?${params}`, request.url);
+        if (source === 'analytics') {
+          return new URL(`/analytics/${formId}?${params}`, request.url);
+        } else {
+          // Redirect to builder with formId as 'edit' query parameter (as expected by FormBuilder)
+          return new URL(`/builder?edit=${formId}&${params}`, request.url);
+        }
       }
       return new URL(`/builder?${params}`, request.url);
     };

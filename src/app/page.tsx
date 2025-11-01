@@ -26,6 +26,7 @@ interface FormItem {
   updated_at?: string;
   total_views?: number;
   fields?: unknown[];
+  custom_slug?: string;
 }
 
 interface FormAnalytics {
@@ -58,8 +59,9 @@ function DashboardContent() {
     toast.success('Form URL copied to clipboard!');
   };
 
-  const getPublicUrl = (formId: string) => {
-    return `${window.location.origin}/forms/${formId}`;
+  const getPublicUrl = (form: FormItem) => {
+    const slug = form.custom_slug || form.id;
+    return `${window.location.origin}/forms/${slug}`;
   };
 
   const openDeleteDialog = (formId: string, formTitle: string) => {
@@ -404,7 +406,7 @@ function DashboardContent() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            copyToClipboard(getPublicUrl(form.id));
+                            copyToClipboard(getPublicUrl(form));
                           }}
                           title="Copy public form URL"
                         >
@@ -438,7 +440,7 @@ function DashboardContent() {
                           </Button>
                         }
                       >
-                        <DropdownMenuItem onClick={() => window.open(getPublicUrl(form.id), '_blank')}>
+                        <DropdownMenuItem onClick={() => window.open(getPublicUrl(form), '_blank')}>
                           <Eye className="w-4 h-4 mr-2" />
                           Preview Form
                         </DropdownMenuItem>
@@ -451,7 +453,7 @@ function DashboardContent() {
                           View Analytics
                         </DropdownMenuItem>
                         {form.is_published && (
-                          <DropdownMenuItem onClick={() => copyToClipboard(getPublicUrl(form.id))}>
+                          <DropdownMenuItem onClick={() => copyToClipboard(getPublicUrl(form))}>
                             <Copy className="w-4 h-4 mr-2" />
                             Copy Link
                           </DropdownMenuItem>
@@ -489,7 +491,7 @@ function DashboardContent() {
                             title="Preview Form"
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(getPublicUrl(form.id), '_blank');
+                              window.open(getPublicUrl(form), '_blank');
                             }}
                           >
                             <Eye className="w-4 h-4" />
@@ -519,7 +521,7 @@ function DashboardContent() {
                               </Button>
                             }
                           >
-                            <DropdownMenuItem onClick={() => window.open(getPublicUrl(form.id), '_blank')}>
+                            <DropdownMenuItem onClick={() => window.open(getPublicUrl(form), '_blank')}>
                               <Eye className="w-4 h-4 mr-2" />
                               Preview Form
                             </DropdownMenuItem>
@@ -532,7 +534,7 @@ function DashboardContent() {
                               View Analytics
                             </DropdownMenuItem>
                             {form.is_published && (
-                              <DropdownMenuItem onClick={() => copyToClipboard(getPublicUrl(form.id))}>
+                              <DropdownMenuItem onClick={() => copyToClipboard(getPublicUrl(form))}>
                                 <Copy className="w-4 h-4 mr-2" />
                                 Copy Link
                               </DropdownMenuItem>
@@ -617,7 +619,7 @@ function DashboardContent() {
                                 className="flex-1"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  window.open(getPublicUrl(form.id), '_blank');
+                                  window.open(getPublicUrl(form), '_blank');
                                 }}
                               >
                                 <ExternalLink className="w-4 h-4 mr-2" />
@@ -628,7 +630,7 @@ function DashboardContent() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  copyToClipboard(getPublicUrl(form.id));
+                                  copyToClipboard(getPublicUrl(form));
                                 }}
                                 title="Copy URL"
                               >

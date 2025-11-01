@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Settings, Mail, BarChart3, Shield, Link, Bell, Copy, ExternalLink, CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import { Settings, Mail, BarChart3, Shield, Link, Bell, Copy, ExternalLink, CheckCircle, Loader2, AlertCircle, FileSpreadsheet } from "lucide-react";
 import { FormSettings } from "./form-builder";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -45,6 +45,15 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
   const [showGoogleDialog, setShowGoogleDialog] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [spreadsheetUrl, setSpreadsheetUrl] = useState('');
+  const [showSpreadsheetSelector, setShowSpreadsheetSelector] = useState(false);
+  const [userSpreadsheets, setUserSpreadsheets] = useState<Array<{
+    id: string;
+    name: string;
+    url: string;
+    modifiedTime: string;
+  }>>([]);
+  const [loadingSpreadsheets, setLoadingSpreadsheets] = useState(false);
+  const [spreadsheetSearch, setSpreadsheetSearch] = useState('');
   
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -70,7 +79,20 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
 
     if (success === 'google_connected') {
       toast.success(decodeURIComponent(message || 'Google Sheets connected successfully'));
-      checkGoogleSheetsStatus();
+      
+      // Retry status check multiple times to ensure tokens are available
+      let retryCount = 0;
+      const maxRetries = 5;
+      const retryInterval = setInterval(() => {
+        retryCount++;
+        console.log(`Retry ${retryCount}: Checking Google Sheets status after OAuth success`);
+        checkGoogleSheetsStatus();
+        
+        if (retryCount >= maxRetries) {
+          clearInterval(retryInterval);
+        }
+      }, 1000);
+      
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
     } else if (error?.startsWith('google_')) {
@@ -83,15 +105,17 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
 
   const checkGoogleSheetsStatus = async () => {
     if (!formId || !user) {
+      console.log('Cannot check status - missing:', { hasFormId: !!formId, hasUser: !!user });
       setGoogleSheetsStatus(prev => ({ ...prev, loading: false }));
       return;
     }
     
     try {
+      console.log('Checking Google Sheets status for:', { formId, userId: user.id });
       const response = await fetch(`/api/sheets/status?formId=${formId}&userId=${user.id}`);
       
       if (response.status === 401) {
-        // User not authenticated, stop loading
+        console.log('Status check: User not authenticated');
         setGoogleSheetsStatus({
           hasAccess: false,
           isConnected: false,
@@ -102,14 +126,27 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
       }
       
       const data = await response.json();
+      console.log('Google Sheets status response:', data);
       
       if (response.ok) {
+        console.log('Setting Google Sheets status:', {
+          hasAccess: data.hasGoogleAccess,
+          isConnected: data.isConnected,
+          hasSpreadsheetInfo: !!data.spreadsheetInfo
+        });
+        
         setGoogleSheetsStatus({
           hasAccess: data.hasGoogleAccess,
           isConnected: data.isConnected,
           spreadsheetInfo: data.spreadsheetInfo,
           loading: false,
         });
+        
+        // If we have access, load spreadsheets for the selector
+        if (data.hasGoogleAccess && userSpreadsheets.length === 0) {
+          console.log('User has Google access, loading spreadsheets...');
+          loadUserSpreadsheets();
+        }
       } else {
         console.error('Error response:', data);
         setGoogleSheetsStatus({
@@ -137,7 +174,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
     }
     
     try {
-      const response = await fetch(`/api/auth/google?userId=${user.id}&formId=${formId}`);
+      const response = await fetch(`/api/auth/google?userId=${user.id}&formId=${formId}&source=builder`);
       const data = await response.json();
       
       if (response.ok && data.authUrl) {
@@ -243,6 +280,70 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
       toast.error('Failed to disconnect spreadsheet');
     }
   };
+
+  const loadUserSpreadsheets = async () => {
+    setLoadingSpreadsheets(true);
+    try {
+      const response = await fetch('/api/sheets/list');
+      if (response.ok) {
+        const { spreadsheets } = await response.json();
+        setUserSpreadsheets(spreadsheets);
+      }
+    } catch (error) {
+      console.error('Error loading spreadsheets:', error);
+      toast.error('Failed to load spreadsheets');
+    } finally {
+      setLoadingSpreadsheets(false);
+    }
+  };
+
+  const handleSelectSpreadsheet = async (spreadsheet: { id: string; name: string; url: string }) => {
+    if (!formId) return;
+    
+    setConnectingGoogle(true);
+    try {
+      const headers = formFields.map((field) => field.label);
+      
+      // Create a new sheet in the selected spreadsheet
+      const response = await fetch('/api/sheets/connect-with-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formId,
+          spreadsheetId: spreadsheet.id,
+          sheetName: `Form Responses - ${new Date().toLocaleDateString()}`,
+          headers,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        toast.success(`Connected to "${spreadsheet.name}" successfully!`);
+        setShowSpreadsheetSelector(false);
+        setSpreadsheetSearch('');
+        checkGoogleSheetsStatus();
+      } else {
+        toast.error(data.error || 'Failed to connect to spreadsheet');
+      }
+    } catch (error) {
+      console.error('Error connecting to spreadsheet:', error);
+      toast.error('Failed to connect to spreadsheet');
+    } finally {
+      setConnectingGoogle(false);
+    }
+  };
+
+  const handleShowSpreadsheetSelector = async () => {
+    setShowSpreadsheetSelector(true);
+    if (userSpreadsheets.length === 0) {
+      await loadUserSpreadsheets();
+    }
+  };
+
+  const filteredSpreadsheets = userSpreadsheets.filter(sheet =>
+    sheet.name.toLowerCase().includes(spreadsheetSearch.toLowerCase())
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -622,8 +723,27 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
                         <div className="space-y-4">
                           <div className="space-y-3">
                             <Button 
+                              onClick={handleShowSpreadsheetSelector} 
+                              disabled={connectingGoogle}
+                              className="w-full"
+                            >
+                              {connectingGoogle ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Connecting...
+                                </>
+                              ) : (
+                                <>
+                                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                                  Select from My Spreadsheets
+                                </>
+                              )}
+                            </Button>
+                            
+                            <Button 
                               onClick={handleCreateSpreadsheet} 
                               disabled={connectingGoogle}
+                              variant="outline"
                               className="w-full"
                             >
                               {connectingGoogle ? (
@@ -680,6 +800,84 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
                   </Dialog>
                 )}
               </div>
+
+              {/* Spreadsheet Selector Modal */}
+              <Dialog open={showSpreadsheetSelector} onOpenChange={setShowSpreadsheetSelector}>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Select Google Spreadsheet</DialogTitle>
+                    <DialogDescription>
+                      Choose a spreadsheet to connect to your form. A new sheet will be created for your form responses.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    {/* Search Input */}
+                    <div>
+                      <Input
+                        placeholder="Search spreadsheets..."
+                        value={spreadsheetSearch}
+                        onChange={(e) => setSpreadsheetSearch(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Spreadsheet List */}
+                    <div className="max-h-60 overflow-y-auto space-y-2">
+                      {loadingSpreadsheets ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Loading spreadsheets...
+                        </div>
+                      ) : filteredSpreadsheets.length > 0 ? (
+                        filteredSpreadsheets.map((spreadsheet) => (
+                          <div 
+                            key={spreadsheet.id} 
+                            className="flex items-center justify-between p-3 border border-gray-200 rounded hover:bg-gray-50"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{spreadsheet.name}</p>
+                              <p className="text-xs text-gray-500">
+                                Modified: {new Date(spreadsheet.modifiedTime).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center space-x-2 ml-3">
+                              <Button
+                                onClick={() => window.open(spreadsheet.url, '_blank')}
+                                variant="ghost"
+                                size="sm"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                onClick={() => handleSelectSpreadsheet(spreadsheet)}
+                                disabled={connectingGoogle}
+                                size="sm"
+                              >
+                                {connectingGoogle ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  'Select'
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <FileSpreadsheet className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-sm text-gray-600">
+                            {spreadsheetSearch ? 'No spreadsheets match your search' : 'No spreadsheets found'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Create a new spreadsheet or check your Google Drive
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
               
               {googleSheetsStatus.isConnected && googleSheetsStatus.spreadsheetInfo && (
                 <div className="text-xs text-gray-600 space-y-1">

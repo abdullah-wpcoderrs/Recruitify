@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { getForm } from "@/lib/database";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 interface GoogleSheetsIntegrationProps {
   formId: string;
@@ -69,12 +70,36 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user: _user } = useAuth();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     loadFormData();
     checkGoogleAccess();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, _user]);
+
+  // Handle OAuth success/error callbacks
+  useEffect(() => {
+    const success = searchParams.get('success');
+    const error = searchParams.get('error');
+    const message = searchParams.get('message');
+
+    if (success === 'google_connected') {
+      toast.success(decodeURIComponent(message || 'Google Sheets connected successfully'));
+      // Add a small delay to ensure tokens are stored before checking status
+      setTimeout(() => {
+        checkGoogleAccess();
+        loadFormData();
+      }, 1000);
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname + window.location.search.replace(/[?&](success|error|message)=[^&]*/g, '').replace(/^&/, '?'));
+    } else if (error?.startsWith('google_')) {
+      toast.error(decodeURIComponent(message || 'Failed to connect Google Sheets'));
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname + window.location.search.replace(/[?&](success|error|message)=[^&]*/g, '').replace(/^&/, '?'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const loadFormData = async () => {
     try {
@@ -183,7 +208,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
     
     try {
       // First, get Google OAuth URL with userId and formId
-      const authResponse = await fetch(`/api/auth/google?userId=${_user.id}&formId=${formId}`);
+      const authResponse = await fetch(`/api/auth/google?userId=${_user.id}&formId=${formId}&source=analytics`);
       if (!authResponse.ok) throw new Error('Failed to get auth URL');
       
       const { authUrl } = await authResponse.json();
@@ -291,12 +316,14 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
     try {
       const headers = form.fields?.map((field) => field.label) || [];
       
-      const response = await fetch('/api/sheets/connect', {
+      // Use the new API endpoint that creates a new sheet in the existing spreadsheet
+      const response = await fetch('/api/sheets/connect-with-sheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
-          spreadsheetUrl: spreadsheet.url,
+          spreadsheetId: spreadsheet.id,
+          sheetName: `${form.title} - Responses`,
           headers,
         }),
       });
@@ -390,56 +417,66 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
           )}
           
           <div className="space-y-3">
-            <Button onClick={handleConnect} disabled={connecting} className="w-full">
-              {connecting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <LinkIcon className="w-4 h-4 mr-2" />
-                  Connect Google Account
-                </>
-              )}
-            </Button>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <Button 
-                onClick={handleCreateSheet} 
-                disabled={connecting || !hasGoogleAccess}
-                variant="outline"
-              >
+            {!hasGoogleAccess ? (
+              <Button onClick={handleConnect} disabled={connecting} className="w-full">
                 {connecting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
                 ) : (
                   <>
-                    <FileSpreadsheet className="w-4 h-4 mr-2" />
-                    Create New
+                    <LinkIcon className="w-4 h-4 mr-2" />
+                    Connect Google Account
                   </>
                 )}
               </Button>
-              
-              <Button 
-                onClick={() => setShowConnectExisting(true)} 
-                disabled={connecting}
-                variant="outline"
-              >
-                <LinkIcon className="w-4 h-4 mr-2" />
-                Connect Existing
-              </Button>
-            </div>
-
-            {hasGoogleAccess && (
-              <Button 
-                onClick={() => setShowSpreadsheetList(true)} 
-                disabled={connecting}
-                variant="outline"
-                className="w-full mt-2"
-              >
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Choose from My Spreadsheets
-              </Button>
+            ) : (
+              <>
+                <Button 
+                  onClick={() => setShowSpreadsheetList(true)} 
+                  disabled={connecting}
+                  className="w-full"
+                >
+                  {connecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet className="w-4 h-4 mr-2" />
+                      Select from My Spreadsheets
+                    </>
+                  )}
+                </Button>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <Button 
+                    onClick={handleCreateSheet} 
+                    disabled={connecting}
+                    variant="outline"
+                  >
+                    {connecting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Create New
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => setShowConnectExisting(true)} 
+                    disabled={connecting}
+                    variant="outline"
+                  >
+                    <LinkIcon className="w-4 h-4 mr-2" />
+                    Connect URL
+                  </Button>
+                </div>
+              </>
             )}
           </div>
 

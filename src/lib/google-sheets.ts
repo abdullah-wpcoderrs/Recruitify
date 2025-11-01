@@ -29,16 +29,16 @@ export const createOAuth2Client = () => {
 };
 
 // Generate OAuth URL for Google Sheets access
-export const getGoogleSheetsAuthUrl = (userId: string, formId?: string) => {
+export const getGoogleSheetsAuthUrl = (userId: string, formId?: string, source?: 'builder' | 'analytics') => {
   const oauth2Client = createOAuth2Client();
   
-  // Include both userId and formId in state for proper redirect
-  const state = JSON.stringify({ userId, formId });
+  // Include userId, formId, and source in state for proper redirect
+  const state = JSON.stringify({ userId, formId, source });
   
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: SCOPES,
-    state, // Pass user ID and form ID to identify context after OAuth
+    state, // Pass user ID, form ID, and source to identify context after OAuth
     prompt: 'consent', // Force consent screen to get refresh token
   });
 };
@@ -58,8 +58,25 @@ export const exchangeCodeForTokens = async (code: string) => {
 
 // Store Google tokens in user profile
 export const storeGoogleTokens = async (userId: string, tokens: { access_token?: string | null; refresh_token?: string | null }) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  console.log('Storing Google tokens for user:', userId, { 
+    hasAccessToken: !!tokens.access_token,
+    hasRefreshToken: !!tokens.refresh_token 
+  });
+  
+  // Use service role key for server-side operations to bypass RLS
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+  
+  const { error } = await supabaseAdmin
     .from('profiles')
     .update({
       google_access_token: tokens.access_token,
@@ -67,18 +84,37 @@ export const storeGoogleTokens = async (userId: string, tokens: { access_token?:
     })
     .eq('id', userId);
 
+  if (error) {
+    console.error('Error storing Google tokens:', error);
+  } else {
+    console.log('Google tokens stored successfully for user:', userId);
+  }
+
   return { error };
 };
 
 // Get authenticated Google Sheets client
 export const getAuthenticatedSheetsClient = async (userId: string) => {
-  // Get user's Google tokens
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile, error } = await (supabase as any)
+  // Use service role key to bypass RLS for reading tokens
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+
+  const { data: profiles, error } = await supabaseAdmin
     .from('profiles')
     .select('google_access_token, google_refresh_token')
     .eq('id', userId)
-    .single();
+    .limit(1);
+
+  const profile = profiles?.[0];
 
   if (error || !profile?.google_access_token) {
     return { client: null, error: 'No Google authentication found' };
@@ -332,13 +368,26 @@ export const connectToExistingSpreadsheet = async (
 
 // List user's spreadsheets using Google Drive API
 export const listUserSpreadsheets = async (userId: string) => {
-  // Get user's Google tokens
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile, error } = await (supabase as any)
+  // Use service role key to bypass RLS for reading tokens
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+
+  const { data: profiles, error } = await supabaseAdmin
     .from('profiles')
     .select('google_access_token, google_refresh_token')
     .eq('id', userId)
-    .single();
+    .limit(1);
+
+  const profile = profiles?.[0];
 
   if (error || !profile?.google_access_token) {
     return { spreadsheets: [], error: 'No Google authentication found' };
@@ -378,12 +427,33 @@ export const listUserSpreadsheets = async (userId: string) => {
 
 // Check if user has Google Sheets access
 export const hasGoogleSheetsAccess = async (userId: string) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile, error } = await (supabase as any)
+  // Use service role key to bypass RLS for reading tokens
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  );
+
+  const { data: profiles, error } = await supabaseAdmin
     .from('profiles')
     .select('google_access_token')
     .eq('id', userId)
-    .single();
+    .limit(1);
+
+  const profile = profiles?.[0];
+
+  console.log('Checking Google access for user:', userId, { 
+    hasProfile: !!profile, 
+    hasToken: !!profile?.google_access_token,
+    profilesCount: profiles?.length || 0,
+    error: error?.message 
+  });
 
   return !error && !!profile?.google_access_token;
 };

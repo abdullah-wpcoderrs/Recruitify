@@ -6,6 +6,9 @@ interface PublicFormPageProps {
   params: Promise<{
     id: string;
   }>;
+  searchParams: Promise<{
+    preview?: string;
+  }>;
 }
 
 interface FormData {
@@ -14,11 +17,20 @@ interface FormData {
   description?: string;
 }
 
-export default async function PublicFormPage({ params }: PublicFormPageProps) {
+export default async function PublicFormPage({ params, searchParams }: PublicFormPageProps) {
   const { id } = await params;
+  const { preview } = await searchParams;
+  const isPreview = preview === 'true';
+  
   const { data: form, error } = await getForm(id);
 
-  if (error || !form || !(form as unknown as FormData).is_published) {
+  if (error || !form) {
+    notFound();
+  }
+
+  // Allow access to unpublished forms only in preview mode
+  const formData = form as unknown as FormData;
+  if (!formData.is_published && !isPreview) {
     notFound();
   }
 
