@@ -7,12 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Settings, Mail, BarChart3, Shield, Link, Bell, Copy, ExternalLink, CheckCircle, Loader2, AlertCircle, FileSpreadsheet } from "lucide-react";
+import { Settings, Mail, BarChart3, Shield, Link, Bell, Copy, ExternalLink, CheckCircle, Loader2, AlertCircle, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { FormSettings } from "./form-builder";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
-import { useSearchParams } from "next/navigation";
 
 interface FormSettingsPanelProps {
   settings: FormSettings;
@@ -56,7 +55,6 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
   const [spreadsheetSearch, setSpreadsheetSearch] = useState('');
   
   const { user } = useAuth();
-  const searchParams = useSearchParams();
 
   const updateSettings = (updates: Partial<FormSettings>) => {
     const newSettings = { ...settings, ...updates };
@@ -71,90 +69,30 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, user]);
 
-  // Handle OAuth callback messages
-  useEffect(() => {
-    const success = searchParams.get('success');
-    const error = searchParams.get('error');
-    const message = searchParams.get('message');
 
-    if (success === 'google_connected') {
-      toast.success(decodeURIComponent(message || 'Google Sheets connected successfully'));
-      
-      // Retry status check multiple times to ensure tokens are available
-      let retryCount = 0;
-      const maxRetries = 5;
-      const retryInterval = setInterval(() => {
-        retryCount++;
-        console.log(`Retry ${retryCount}: Checking Google Sheets status after OAuth success`);
-        checkGoogleSheetsStatus();
-        
-        if (retryCount >= maxRetries) {
-          clearInterval(retryInterval);
-        }
-      }, 1000);
-      
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (error?.startsWith('google_')) {
-      toast.error(decodeURIComponent(message || 'Failed to connect Google Sheets'));
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const checkGoogleSheetsStatus = async () => {
     if (!formId || !user) {
-      console.log('Cannot check status - missing:', { hasFormId: !!formId, hasUser: !!user });
       setGoogleSheetsStatus(prev => ({ ...prev, loading: false }));
       return;
     }
     
     try {
-      console.log('Checking Google Sheets status for:', { formId, userId: user.id });
       const response = await fetch(`/api/sheets/status?formId=${formId}&userId=${user.id}`);
-      
-      if (response.status === 401) {
-        console.log('Status check: User not authenticated');
-        setGoogleSheetsStatus({
-          hasAccess: false,
-          isConnected: false,
-          spreadsheetInfo: null,
-          loading: false,
-        });
-        return;
-      }
-      
       const data = await response.json();
-      console.log('Google Sheets status response:', data);
       
-      if (response.ok) {
-        console.log('Setting Google Sheets status:', {
-          hasAccess: data.hasGoogleAccess,
-          isConnected: data.isConnected,
-          hasSpreadsheetInfo: !!data.spreadsheetInfo
-        });
-        
-        setGoogleSheetsStatus({
-          hasAccess: data.hasGoogleAccess,
-          isConnected: data.isConnected,
-          spreadsheetInfo: data.spreadsheetInfo,
-          loading: false,
-        });
-        
-        // If we have access, load spreadsheets for the selector
-        if (data.hasGoogleAccess && userSpreadsheets.length === 0) {
-          console.log('User has Google access, loading spreadsheets...');
-          loadUserSpreadsheets();
-        }
-      } else {
-        console.error('Error response:', data);
-        setGoogleSheetsStatus({
-          hasAccess: false,
-          isConnected: false,
-          spreadsheetInfo: null,
-          loading: false,
-        });
+      // Always use the data from response, even if status is not OK
+      // The API now returns hasGoogleAccess even when form is not found
+      setGoogleSheetsStatus({
+        hasAccess: data.hasGoogleAccess || false,
+        isConnected: data.isConnected || false,
+        spreadsheetInfo: data.spreadsheetInfo || null,
+        loading: false,
+      });
+      
+      // If we have access, load spreadsheets for the selector
+      if (data.hasGoogleAccess && userSpreadsheets.length === 0) {
+        loadUserSpreadsheets();
       }
     } catch (error) {
       console.error('Error checking Google Sheets status:', error);
@@ -167,28 +105,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
     }
   };
 
-  const handleGoogleConnect = async () => {
-    if (!user) {
-      toast.error('Please sign in first');
-      return;
-    }
-    
-    try {
-      const response = await fetch(`/api/auth/google?userId=${user.id}&formId=${formId}&source=builder`);
-      const data = await response.json();
-      
-      if (response.ok && data.authUrl) {
-        // Redirect to Google OAuth
-        window.location.href = data.authUrl;
-      } else {
-        console.error('Auth error:', data);
-        toast.error(data.error || 'Failed to initiate Google authentication');
-      }
-    } catch (error) {
-      console.error('Error connecting to Google:', error);
-      toast.error('Failed to connect to Google Sheets');
-    }
-  };
+
 
   const handleCreateSpreadsheet = async () => {
     if (!formId) return;
@@ -282,9 +199,11 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
   };
 
   const loadUserSpreadsheets = async () => {
+    if (!user) return;
+    
     setLoadingSpreadsheets(true);
     try {
-      const response = await fetch('/api/sheets/list');
+      const response = await fetch(`/api/sheets/list?userId=${user.id}`);
       if (response.ok) {
         const { spreadsheets } = await response.json();
         setUserSpreadsheets(spreadsheets);
@@ -690,7 +609,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
                 ) : (
                   <Dialog open={showGoogleDialog} onOpenChange={setShowGoogleDialog}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" disabled={!formId} title={!formId ? 'Save your form first' : ''}>
                         Connect
                       </Button>
                     </DialogTrigger>
@@ -706,18 +625,34 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
                         <div className="space-y-4">
                           <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded">
                             <AlertCircle className="w-5 h-5 text-blue-500" />
-                            <div>
-                              <p className="font-medium text-blue-900">Authorization Required</p>
+                            <div className="flex-1">
+                              <p className="font-medium text-blue-900">Google Account Not Connected</p>
                               <p className="text-sm text-blue-700">
-                                You need to authorize access to your Google Sheets first.
+                                Connect your Google account in Settings to use Google Sheets integration.
                               </p>
                             </div>
                           </div>
                           
-                          <Button onClick={handleGoogleConnect} className="w-full">
-                            <span className="text-white font-bold mr-2">G</span>
-                            Authorize Google Sheets Access
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button 
+                              onClick={() => window.open('/settings', '_blank')} 
+                              className="flex-1"
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Go to Settings
+                            </Button>
+                            <Button 
+                              onClick={() => checkGoogleSheetsStatus()} 
+                              variant="outline"
+                              disabled={googleSheetsStatus.loading}
+                            >
+                              {googleSheetsStatus.loading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <RefreshCw className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-4">

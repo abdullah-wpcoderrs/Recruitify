@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, FileText, Users, BarChart3, Grid3X3, List, MoreVertical, Eye, Edit, Trash2, LogOut, User } from "lucide-react";
+import { Plus, FileText, Users, BarChart3, Grid3X3, List, MoreVertical, Eye, Edit, Trash2, LogOut, User, Settings } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/auth/protected-route";
@@ -188,6 +188,12 @@ function DashboardContent() {
                 <User className="w-4 h-4" />
                 <span>{user?.email}</span>
               </div>
+              <Link href="/settings">
+                <Button variant="ghost" size="sm">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </Link>
               <Link href="/builder">
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />

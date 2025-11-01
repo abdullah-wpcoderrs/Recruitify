@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     // Parse state to get userId, formId, and source
     let userId: string;
     let formId: string | null = null;
-    let source: 'builder' | 'analytics' | null = null;
+    let source: 'builder' | 'analytics' | 'settings' | null = null;
     
     try {
       const stateData = JSON.parse(state || '{}');
@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
 
     // Determine redirect URL based on context
     const getRedirectUrl = (params: string) => {
+      if (source === 'settings') {
+        return new URL(`/settings?${params}`, request.url);
+      }
       if (formId) {
         if (source === 'analytics') {
           return new URL(`/analytics/${formId}?${params}`, request.url);

@@ -1,10 +1,10 @@
 import { google } from 'googleapis';
-import { supabase } from './supabase';
 
 // Google Sheets API configuration
 const SCOPES = [
   'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/drive.readonly' // Add Drive API for listing spreadsheets
+  'https://www.googleapis.com/auth/drive.readonly', // Add Drive API for listing spreadsheets
+  'https://www.googleapis.com/auth/userinfo.email' // Get user's email
 ];
 
 export interface GoogleSheetsConfig {
@@ -58,11 +58,6 @@ export const exchangeCodeForTokens = async (code: string) => {
 
 // Store Google tokens in user profile
 export const storeGoogleTokens = async (userId: string, tokens: { access_token?: string | null; refresh_token?: string | null }) => {
-  console.log('Storing Google tokens for user:', userId, { 
-    hasAccessToken: !!tokens.access_token,
-    hasRefreshToken: !!tokens.refresh_token 
-  });
-  
   // Use service role key for server-side operations to bypass RLS
   const { createClient } = await import('@supabase/supabase-js');
   const supabaseAdmin = createClient(
@@ -76,18 +71,49 @@ export const storeGoogleTokens = async (userId: string, tokens: { access_token?:
     }
   );
   
-  const { error } = await supabaseAdmin
-    .from('profiles')
-    .update({
-      google_access_token: tokens.access_token,
-      google_refresh_token: tokens.refresh_token,
-    })
-    .eq('id', userId);
+  // Get user's email from Google
+  let googleEmail = null;
+  if (tokens.access_token) {
+    try {
+      const oauth2Client = createOAuth2Client();
+      oauth2Client.setCredentials({ 
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token 
+      });
+      const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+      const { data } = await oauth2.userinfo.get();
+      googleEmail = data.email;
+    } catch (error) {
+      console.error('Error fetching Google user info:', error);
+    }
+  }
+  
+  // Try to update with google_email, but fall back if column doesn't exist
+  let error = null;
+  try {
+    const result = await supabaseAdmin
+      .from('profiles')
+      .update({
+        google_access_token: tokens.access_token,
+        google_refresh_token: tokens.refresh_token,
+        google_email: googleEmail,
+      })
+      .eq('id', userId);
+    error = result.error;
+  } catch {
+    // If google_email column doesn't exist, try without it
+    const result = await supabaseAdmin
+      .from('profiles')
+      .update({
+        google_access_token: tokens.access_token,
+        google_refresh_token: tokens.refresh_token,
+      })
+      .eq('id', userId);
+    error = result.error;
+  }
 
   if (error) {
     console.error('Error storing Google tokens:', error);
-  } else {
-    console.log('Google tokens stored successfully for user:', userId);
   }
 
   return { error };
@@ -209,15 +235,15 @@ export const appendToSpreadsheet = async (
       if (typeof value === 'object' && value !== null) {
         if (Array.isArray(value)) {
           // Handle file arrays
-          value = value.map((item: any) => {
-            if (typeof item === 'object' && item.url) {
-              return item.url;
+          value = value.map((item: unknown) => {
+            if (typeof item === 'object' && item !== null && 'url' in item) {
+              return (item as { url: string }).url;
             }
             return String(item);
           }).join(', ');
-        } else if ((value as any).url) {
+        } else if ('url' in value) {
           // Handle single file object
-          value = (value as any).url;
+          value = (value as { url: string }).url;
         } else {
           value = JSON.stringify(value);
         }
@@ -447,13 +473,6 @@ export const hasGoogleSheetsAccess = async (userId: string) => {
     .limit(1);
 
   const profile = profiles?.[0];
-
-  console.log('Checking Google access for user:', userId, { 
-    hasProfile: !!profile, 
-    hasToken: !!profile?.google_access_token,
-    profilesCount: profiles?.length || 0,
-    error: error?.message 
-  });
 
   return !error && !!profile?.google_access_token;
 };

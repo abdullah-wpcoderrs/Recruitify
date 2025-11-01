@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hasGoogleSheetsAccess, getSpreadsheetInfo } from '@/lib/google-sheets';
 import { getForm } from '@/lib/database';
-import { supabase } from '@/lib/supabase';
 
 interface FormWithSheets {
   google_sheet_id?: string;
@@ -18,13 +17,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user has Google Sheets access
-    console.log('Status API: Checking access for user:', userId);
     let hasAccess = await hasGoogleSheetsAccess(userId);
-    console.log('Status API: hasAccess result from helper:', hasAccess);
     
     // If helper function fails, try direct database check with service role
     if (!hasAccess) {
-      console.log('Status API: Trying direct database check with service role...');
       const { createClient } = await import('@supabase/supabase-js');
       const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,20 +41,19 @@ export async function GET(request: NextRequest) {
       
       const profile = profiles?.[0];
       hasAccess = !dbError && !!profile?.google_access_token;
-      console.log('Status API: Direct DB check result:', { 
-        hasAccess, 
-        hasProfile: !!profile,
-        hasToken: !!profile?.google_access_token,
-        profilesCount: profiles?.length || 0,
-        error: dbError?.message 
-      });
     }
 
     // Get form to check if it has a connected spreadsheet
     const { data: form, error: formError } = await getForm(formId);
     
+    // If form not found, still return hasGoogleAccess status
     if (formError || !form) {
-      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
+      return NextResponse.json({
+        hasGoogleAccess: hasAccess,
+        isConnected: false,
+        spreadsheetId: null,
+        spreadsheetInfo: null,
+      });
     }
 
     const formData = form as unknown as FormWithSheets;

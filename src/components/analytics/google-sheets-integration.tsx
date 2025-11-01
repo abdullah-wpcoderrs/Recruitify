@@ -22,7 +22,6 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { getForm } from "@/lib/database";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
 
 interface GoogleSheetsIntegrationProps {
   formId: string;
@@ -70,7 +69,6 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user: _user } = useAuth();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     loadFormData();
@@ -78,28 +76,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId, _user]);
 
-  // Handle OAuth success/error callbacks
-  useEffect(() => {
-    const success = searchParams.get('success');
-    const error = searchParams.get('error');
-    const message = searchParams.get('message');
 
-    if (success === 'google_connected') {
-      toast.success(decodeURIComponent(message || 'Google Sheets connected successfully'));
-      // Add a small delay to ensure tokens are stored before checking status
-      setTimeout(() => {
-        checkGoogleAccess();
-        loadFormData();
-      }, 1000);
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname + window.location.search.replace(/[?&](success|error|message)=[^&]*/g, '').replace(/^&/, '?'));
-    } else if (error?.startsWith('google_')) {
-      toast.error(decodeURIComponent(message || 'Failed to connect Google Sheets'));
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname + window.location.search.replace(/[?&](success|error|message)=[^&]*/g, '').replace(/^&/, '?'));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const loadFormData = async () => {
     try {
@@ -137,9 +114,9 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
     if (!_user) return;
     
     try {
-      const response = await fetch('/api/sheets/status');
+      const response = await fetch(`/api/sheets/status?formId=${formId}&userId=${_user.id}`);
       if (response.ok) {
-        const { hasAccess } = await response.json();
+        const { hasGoogleAccess: hasAccess } = await response.json();
         setHasGoogleAccess(hasAccess);
         
         // If user has access, load their spreadsheets
@@ -153,9 +130,11 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
   };
 
   const loadUserSpreadsheets = async () => {
+    if (!_user) return;
+    
     setLoadingSpreadsheets(true);
     try {
-      const response = await fetch('/api/sheets/list');
+      const response = await fetch(`/api/sheets/list?userId=${_user.id}`);
       if (response.ok) {
         const { spreadsheets } = await response.json();
         setUserSpreadsheets(spreadsheets);
@@ -197,30 +176,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
     }
   };
 
-  const handleConnect = async () => {
-    if (!_user) {
-      setError('User not authenticated');
-      return;
-    }
 
-    setConnecting(true);
-    setError(null);
-    
-    try {
-      // First, get Google OAuth URL with userId and formId
-      const authResponse = await fetch(`/api/auth/google?userId=${_user.id}&formId=${formId}&source=analytics`);
-      if (!authResponse.ok) throw new Error('Failed to get auth URL');
-      
-      const { authUrl } = await authResponse.json();
-      
-      // Redirect to Google OAuth
-      window.location.href = authUrl;
-    } catch (err) {
-      setError('Failed to connect to Google');
-      console.error(err);
-      setConnecting(false);
-    }
-  };
 
   const handleCreateSheet = async () => {
     if (!form) return;
@@ -418,19 +374,29 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
           
           <div className="space-y-3">
             {!hasGoogleAccess ? (
-              <Button onClick={handleConnect} disabled={connecting} className="w-full">
-                {connecting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon className="w-4 h-4 mr-2" />
-                    Connect Google Account
-                  </>
-                )}
-              </Button>
+              <div className="space-y-3">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-900 font-medium mb-1">Google Account Not Connected</p>
+                  <p className="text-sm text-blue-700">
+                    Connect your Google account in Settings to use Google Sheets integration.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => window.open('/settings', '_blank')} 
+                    className="flex-1"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Go to Settings
+                  </Button>
+                  <Button 
+                    onClick={() => checkGoogleAccess()} 
+                    variant="outline"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             ) : (
               <>
                 <Button 
