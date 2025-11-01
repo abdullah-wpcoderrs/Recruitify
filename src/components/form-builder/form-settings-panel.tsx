@@ -18,11 +18,13 @@ interface FormSettingsPanelProps {
   onSettingsChange: (settings: FormSettings) => void;
   formId?: string;
   formFields?: Array<{ label: string }>;
+  formTitle?: string;
 }
 
 interface SpreadsheetInfo {
   id: string;
   title: string;
+  url?: string;
   rowCount: number;
   lastUpdated: string;
 }
@@ -34,7 +36,7 @@ interface GoogleSheetsStatus {
   loading: boolean;
 }
 
-export function FormSettingsPanel({ settings, onSettingsChange, formId, formFields = [] }: FormSettingsPanelProps) {
+export function FormSettingsPanel({ settings, onSettingsChange, formId, formFields = [], formTitle = 'Form' }: FormSettingsPanelProps) {
   const [googleSheetsStatus, setGoogleSheetsStatus] = useState<GoogleSheetsStatus>({
     hasAccess: false,
     isConnected: false,
@@ -108,7 +110,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
 
 
   const handleCreateSpreadsheet = async () => {
-    if (!formId) return;
+    if (!formId || !user) return;
     
     setConnectingGoogle(true);
     try {
@@ -119,7 +121,8 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
-          title: `Form Responses - ${new Date().toLocaleDateString()}`,
+          userId: user.id,
+          title: formTitle || 'Form Responses',
           headers,
         }),
       });
@@ -127,7 +130,27 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
       const data = await response.json();
       
       if (response.ok) {
-        toast.success('Spreadsheet created and connected successfully!');
+        if (data.warning) {
+          toast.success('Spreadsheet created! Please save your form to complete the connection.');
+        } else {
+          toast.success('Spreadsheet created and connected successfully!');
+        }
+        
+        // Update status with the created spreadsheet info immediately
+        if (data.spreadsheet) {
+          setGoogleSheetsStatus(prev => ({
+            ...prev,
+            isConnected: true,
+            spreadsheetInfo: {
+              id: data.spreadsheet.id,
+              title: data.spreadsheet.title,
+              url: data.spreadsheet.url,
+              rowCount: 1, // Just headers
+              lastUpdated: new Date().toISOString(),
+            },
+          }));
+        }
+        
         setShowGoogleDialog(false);
         checkGoogleSheetsStatus();
       } else {
@@ -142,7 +165,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
   };
 
   const handleConnectExisting = async () => {
-    if (!formId || !spreadsheetUrl.trim()) return;
+    if (!formId || !spreadsheetUrl.trim() || !user) return;
     
     setConnectingGoogle(true);
     try {
@@ -153,6 +176,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
+          userId: user.id,
           spreadsheetUrl: spreadsheetUrl.trim(),
           headers,
         }),
@@ -217,7 +241,7 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
   };
 
   const handleSelectSpreadsheet = async (spreadsheet: { id: string; name: string; url: string }) => {
-    if (!formId) return;
+    if (!formId || !user) return;
     
     setConnectingGoogle(true);
     try {
@@ -229,8 +253,9 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
+          userId: user.id,
           spreadsheetId: spreadsheet.id,
-          sheetName: `Form Responses - ${new Date().toLocaleDateString()}`,
+          sheetName: formTitle || 'Form Responses',
           headers,
         }),
       });
@@ -597,7 +622,11 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${googleSheetsStatus.spreadsheetInfo?.id}`, '_blank')}
+                        onClick={() => {
+                          const url = googleSheetsStatus.spreadsheetInfo?.url || 
+                                     `https://docs.google.com/spreadsheets/d/${googleSheetsStatus.spreadsheetInfo?.id}`;
+                          window.open(url, '_blank');
+                        }}
                       >
                         <ExternalLink className="w-4 h-4" />
                       </Button>

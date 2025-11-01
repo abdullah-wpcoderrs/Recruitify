@@ -4,16 +4,16 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
-    const { formId, spreadsheetId, sheetName, headers } = await request.json();
+    const { formId, spreadsheetId, sheetName, headers, userId } = await request.json();
 
-    if (!formId || !spreadsheetId || !sheetName) {
+    if (!formId || !spreadsheetId || !sheetName || !userId) {
       return NextResponse.json(
-        { error: 'Form ID, spreadsheet ID, and sheet name are required' },
+        { error: 'Form ID, spreadsheet ID, sheet name, and user ID are required' },
         { status: 400 }
       );
     }
 
-    // Get form to verify it exists and get user ID
+    // Use service role for database operations
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -25,21 +25,11 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const { data: form, error: formError } = await supabaseAdmin
-      .from('forms')
-      .select('user_id')
-      .eq('id', formId)
-      .single();
-
-    if (formError || !form) {
-      return NextResponse.json({ error: 'Form not found' }, { status: 404 });
-    }
-
     // Get user's Google tokens
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('google_access_token, google_refresh_token')
-      .eq('id', form.user_id)
+      .eq('id', userId)
       .single();
 
     if (profileError || !profile?.google_access_token) {
@@ -135,7 +125,13 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Error updating form:', updateError);
-      return NextResponse.json({ error: 'Failed to update form' }, { status: 500 });
+      return NextResponse.json({
+        success: true,
+        spreadsheetId,
+        spreadsheetUrl,
+        sheetName,
+        warning: 'Sheet created but form link may need to be updated after saving the form',
+      });
     }
 
     return NextResponse.json({

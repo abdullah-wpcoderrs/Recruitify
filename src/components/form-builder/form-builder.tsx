@@ -651,6 +651,7 @@ export function FormBuilder() {
               onSettingsChange={updateSettings}
               formId={formId || undefined}
               formFields={fields}
+              formTitle={formTitle}
             />
           </TabsContent>
         </Tabs>

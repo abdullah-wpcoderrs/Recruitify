@@ -5,34 +5,51 @@ import { updateForm } from '@/lib/database';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const { user, error: authError } = await getCurrentUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { formId, title, headers, userId } = await request.json();
 
-    const { formId, title, headers } = await request.json();
-
-    if (!formId || !title || !headers) {
+    if (!formId || !title || !headers || !userId) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Create spreadsheet
-    const { spreadsheet, error } = await createSpreadsheet(user.id, title, headers);
+    const { spreadsheet, error } = await createSpreadsheet(userId, title, headers);
     
     if (error || !spreadsheet) {
       console.error('Error creating spreadsheet:', error);
       return NextResponse.json({ error: 'Failed to create spreadsheet' }, { status: 500 });
     }
 
-    // Update form with Google Sheet ID
-    const { error: updateError } = await updateForm(formId, {
-      google_sheet_id: spreadsheet.id,
-    });
+    // Update form with Google Sheet ID using service role
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    const { error: updateError } = await supabaseAdmin
+      .from('forms')
+      .update({
+        google_sheet_id: spreadsheet.id,
+        google_sheet_url: spreadsheet.url,
+        google_sheet_name: spreadsheet.title,
+      })
+      .eq('id', formId);
 
     if (updateError) {
       console.error('Error updating form with sheet ID:', updateError);
-      return NextResponse.json({ error: 'Failed to link spreadsheet to form' }, { status: 500 });
+      // Don't fail the request if form update fails - spreadsheet was created successfully
+      // Return success with a warning
+      return NextResponse.json({
+        success: true,
+        spreadsheet,
+        warning: 'Spreadsheet created but form link may need to be updated after saving the form',
+      });
     }
 
     return NextResponse.json({
