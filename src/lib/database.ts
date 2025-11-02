@@ -131,12 +131,24 @@ export const getUserForms = async (userId: string) => {
 };
 
 export const getForm = async (formId: string) => {
-  // Query by ID only (custom_slug column doesn't exist yet in database)
-  const { data, error } = await supabase
+  // Try to get by custom slug first, then by ID
+  let { data, error } = await supabase
     .from('forms')
     .select('*')
-    .eq('id', formId)
-    .single();
+    .eq('custom_slug', formId)
+    .maybeSingle();
+
+  // If not found by custom slug, try by ID
+  if (!data && !error) {
+    const result = await supabase
+      .from('forms')
+      .select('*')
+      .eq('id', formId)
+      .single();
+    
+    data = result.data;
+    error = result.error;
+  }
 
   return { data, error };
 };
