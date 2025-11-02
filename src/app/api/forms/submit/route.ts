@@ -12,6 +12,7 @@ interface UploadedFile {
 }
 
 interface FormField {
+  id?: string;
   label: string;
 }
 
@@ -108,10 +109,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Sync to Google Sheets if connected
-    if (formData.google_sheet_id && formData.user_id) {
+    if (formData.google_sheet_id && formData.user_id && formData.fields) {
       try {
-        const headers = formData.fields?.map((field) => field.label) || [];
-        await appendToSpreadsheet(formData.user_id, formData.google_sheet_id, data, headers);
+        // Create field mapping from ID to label
+        const fieldMap = new Map(
+          formData.fields.map((field: { id?: string; label: string }) => [field.id, field.label])
+        );
+        
+        await appendToSpreadsheet(
+          formData.user_id, 
+          formData.google_sheet_id, 
+          data, 
+          formData.fields,
+          fieldMap
+        );
       } catch (error) {
         console.error('Error syncing to Google Sheets:', error);
         // Don't fail the submission if Google Sheets sync fails

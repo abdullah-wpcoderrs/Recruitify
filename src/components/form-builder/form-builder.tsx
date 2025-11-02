@@ -271,6 +271,26 @@ export function FormBuilder() {
         });
         
         if (error) throw error;
+        
+        // Update Google Sheets headers if connected
+        const { data: formData } = await getForm(formId);
+        if (formData && (formData as { google_sheet_id?: string }).google_sheet_id) {
+          try {
+            await fetch('/api/sheets/update-headers', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.id,
+                spreadsheetId: (formData as { google_sheet_id: string }).google_sheet_id,
+                fields,
+              }),
+            });
+          } catch (err) {
+            console.error('Error updating spreadsheet headers:', err);
+            // Don't fail the save if header update fails
+          }
+        }
+        
         if (showToast) toast.success('Form updated successfully');
       } else {
         // Create new form

@@ -4,22 +4,35 @@ import { updateForm } from '@/lib/database';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const { user, error: authError } = await getCurrentUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { formId, userId } = await request.json();
+
+    if (!formId || !userId) {
+      return NextResponse.json({ error: 'Form ID and User ID are required' }, { status: 400 });
     }
 
-    const { formId } = await request.json();
+    // Use service role to update form
+    const { createClient } = await import('@supabase/supabase-js');
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
-    if (!formId) {
-      return NextResponse.json({ error: 'Form ID is required' }, { status: 400 });
-    }
-
-    // Remove Google Sheet ID from form
-    const { error: updateError } = await updateForm(formId, {
-      google_sheet_id: undefined,
-    });
+    // Remove Google Sheet info from form
+    const { error: updateError } = await supabaseAdmin
+      .from('forms')
+      .update({
+        google_sheet_id: null,
+        google_sheet_url: null,
+        google_sheet_name: null,
+      })
+      .eq('id', formId)
+      .eq('user_id', userId); // Ensure user owns the form
 
     if (updateError) {
       console.error('Error disconnecting spreadsheet from form:', updateError);

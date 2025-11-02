@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No Google Sheet connected' }, { status: 400 });
     }
 
-    // Get field headers from form
-    const headers = form.fields?.map((field) => field.label) || [];
+    // Get fields from form
+    const fields = form.fields || [];
 
     // Sync all submissions to spreadsheet
     let syncedCount = 0;
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         user.id,
         form.google_sheet_id,
         submissionData.data,
-        headers
+        fields
       );
       
       if (!error) {

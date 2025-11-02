@@ -217,7 +217,8 @@ export const appendToSpreadsheet = async (
   userId: string, 
   spreadsheetId: string, 
   data: Record<string, unknown>,
-  headers: string[]
+  fields: Array<{ id?: string; label: string }>,
+  fieldMap?: Map<string | undefined, string>
 ) => {
   const { client, error } = await getAuthenticatedSheetsClient(userId);
   
@@ -226,10 +227,12 @@ export const appendToSpreadsheet = async (
   }
 
   try {
-    // Prepare row data in the same order as headers
+    // Prepare row data in the same order as fields
     const timestamp = new Date().toISOString();
-    const rowData = [timestamp, ...headers.map(header => {
-      let value = data[header] || '';
+    
+    const rowData = [timestamp, ...fields.map(field => {
+      // Get value using field ID
+      let value: unknown = data[field.id || ''] || '';
       
       // Handle file uploads - convert to download URLs
       if (typeof value === 'object' && value !== null) {
@@ -264,6 +267,64 @@ export const appendToSpreadsheet = async (
     return { error: null };
   } catch (error) {
     console.error('Error appending to spreadsheet:', error);
+    return { error };
+  }
+};
+
+// Update spreadsheet headers
+export const updateSpreadsheetHeaders = async (
+  userId: string,
+  spreadsheetId: string,
+  fields: Array<{ id?: string; label: string }>
+) => {
+  const { client, error } = await getAuthenticatedSheetsClient(userId);
+  
+  if (error || !client) {
+    return { error: error || 'Failed to get authenticated client' };
+  }
+
+  try {
+    // Prepare header row with timestamp + field labels
+    const headers = ['Timestamp', ...fields.map(field => field.label)];
+
+    // Update the first row with new headers
+    await client.spreadsheets.values.update({
+      spreadsheetId,
+      range: 'Responses!A1',
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [headers],
+      },
+    });
+
+    // Format header row (bold, background color)
+    await client.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: {
+                sheetId: 0, // Assuming first sheet
+                startRowIndex: 0,
+                endRowIndex: 1,
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+                  textFormat: { bold: true },
+                },
+              },
+              fields: 'userEnteredFormat(backgroundColor,textFormat)',
+            },
+          },
+        ],
+      },
+    });
+
+    return { error: null };
+  } catch (error) {
+    console.error('Error updating spreadsheet headers:', error);
     return { error };
   }
 };

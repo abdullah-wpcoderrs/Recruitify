@@ -66,6 +66,28 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
   // Check Google Sheets status on component mount
   useEffect(() => {
     if (formId && user) {
+      // Try to load from localStorage first
+      const cacheKey = `google-sheets-status-${formId}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (cached) {
+        try {
+          const cachedData = JSON.parse(cached);
+          // Check if cache is less than 5 minutes old
+          if (Date.now() - cachedData.timestamp < 5 * 60 * 1000) {
+            setGoogleSheetsStatus({
+              ...cachedData.status,
+              loading: false,
+            });
+            // Still check in background but don't show loading
+            checkGoogleSheetsStatus(true);
+            return;
+          }
+        } catch (e) {
+          // Invalid cache, ignore
+        }
+      }
+      
       checkGoogleSheetsStatus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -73,24 +95,37 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
 
 
 
-  const checkGoogleSheetsStatus = async () => {
+  const checkGoogleSheetsStatus = async (silent = false) => {
     if (!formId || !user) {
       setGoogleSheetsStatus(prev => ({ ...prev, loading: false }));
       return;
+    }
+    
+    if (!silent) {
+      setGoogleSheetsStatus(prev => ({ ...prev, loading: true }));
     }
     
     try {
       const response = await fetch(`/api/sheets/status?formId=${formId}&userId=${user.id}`);
       const data = await response.json();
       
-      // Always use the data from response, even if status is not OK
-      // The API now returns hasGoogleAccess even when form is not found
-      setGoogleSheetsStatus({
+      const newStatus = {
         hasAccess: data.hasGoogleAccess || false,
         isConnected: data.isConnected || false,
         spreadsheetInfo: data.spreadsheetInfo || null,
         loading: false,
-      });
+      };
+      
+      // Always use the data from response, even if status is not OK
+      // The API now returns hasGoogleAccess even when form is not found
+      setGoogleSheetsStatus(newStatus);
+      
+      // Cache the status in localStorage
+      const cacheKey = `google-sheets-status-${formId}`;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        status: newStatus,
+        timestamp: Date.now(),
+      }));
       
       // If we have access, load spreadsheets for the selector
       if (data.hasGoogleAccess && userSpreadsheets.length === 0) {
@@ -201,17 +236,30 @@ export function FormSettingsPanel({ settings, onSettingsChange, formId, formFiel
   };
 
   const handleDisconnect = async () => {
-    if (!formId) return;
+    if (!formId || !user) return;
     
     try {
       const response = await fetch('/api/sheets/disconnect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formId }),
+        body: JSON.stringify({ 
+          formId,
+          userId: user.id,
+        }),
       });
 
       if (response.ok) {
         toast.success('Spreadsheet disconnected successfully');
+        // Clear the local state immediately
+        setGoogleSheetsStatus(prev => ({
+          ...prev,
+          isConnected: false,
+          spreadsheetInfo: null,
+        }));
+        // Clear cache
+        if (formId) {
+          localStorage.removeItem(`google-sheets-status-${formId}`);
+        }
         checkGoogleSheetsStatus();
       } else {
         toast.error('Failed to disconnect spreadsheet');
