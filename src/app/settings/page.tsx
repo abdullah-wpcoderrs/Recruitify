@@ -14,14 +14,18 @@ import {
   Loader2, 
   CheckCircle,
   ExternalLink,
-  Unlink
+  Unlink,
+  FileText,
+  ArrowLeft,
+  LogOut
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -130,7 +134,38 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto py-8 px-4">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-primary-600 rounded flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-primary-600">Recruitify</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3 text-sm text-gray-600">
+                <User className="w-4 h-4" />
+                <span>{user?.email}</span>
+              </div>
+              <Link href="/">
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Dashboard
+                </Button>
+              </Link>
+              <Button variant="outline" onClick={signOut}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-4xl mx-auto py-8 px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
           <p className="text-gray-600 mt-2">Manage your account and integrations</p>
@@ -297,7 +332,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

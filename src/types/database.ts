@@ -47,6 +47,8 @@ export interface Database {
           total_views: number
           google_sheet_id: string | null
           google_sheet_url: string | null
+          google_sheet_last_sync?: string | null  // Optional - may not exist in database yet
+          custom_slug?: string | null  // Optional - may not exist in database yet
           created_at: string
           updated_at: string
           user_id: string
@@ -61,6 +63,8 @@ export interface Database {
           total_views?: number
           google_sheet_id?: string | null
           google_sheet_url?: string | null
+          google_sheet_last_sync?: string | null
+          custom_slug?: string | null
           created_at?: string
           updated_at?: string
           user_id: string
@@ -75,6 +79,8 @@ export interface Database {
           total_views?: number
           google_sheet_id?: string | null
           google_sheet_url?: string | null
+          google_sheet_last_sync?: string | null
+          custom_slug?: string | null
           created_at?: string
           updated_at?: string
           user_id?: string

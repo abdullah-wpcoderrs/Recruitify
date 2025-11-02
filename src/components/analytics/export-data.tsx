@@ -70,7 +70,7 @@ export function ExportData({ formId, totalResponses, formFields = [] }: ExportDa
       } else {
         // Handle JSON response for other formats
         const data = await response.json();
-        console.log('Export data:', data);
+        // Export data received
         alert('PDF export is not yet implemented. Please use CSV or Excel format.');
       }
     } catch (error) {

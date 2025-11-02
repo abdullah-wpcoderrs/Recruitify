@@ -13,25 +13,35 @@ export interface DashboardStats {
 
 export const getDashboardStats = async (userId: string): Promise<DashboardStats> => {
   try {
-    // Get total forms for user with views
+    // Get total forms for user
     const { data: forms, error: formsError } = await supabase
       .from('forms')
-      .select('id, created_at, total_views')
+      .select('id, created_at')
       .eq('user_id', userId);
 
     if (formsError) throw formsError;
 
-    interface FormWithViews {
+    interface FormWithCreatedAt {
       id: string;
       created_at: string;
-      total_views: number;
     }
 
     const totalForms = forms?.length || 0;
-    const totalViews = forms?.reduce((sum, form: FormWithViews) => sum + (form.total_views || 0), 0) || 0;
+    const formIds = forms?.map((form: FormWithCreatedAt) => form.id) || [];
+
+    // Get actual view count from form_views table
+    let totalViews = 0;
+    if (formIds.length > 0) {
+      const { data: viewsData, error: viewsError } = await supabase
+        .from('form_views')
+        .select('id')
+        .in('form_id', formIds);
+
+      if (viewsError) throw viewsError;
+      totalViews = viewsData?.length || 0;
+    }
 
     // Get total submissions for user's forms
-    const formIds = forms?.map((form: FormWithViews) => form.id) || [];
     
     interface Submission {
       id: string;
@@ -59,11 +69,11 @@ export const getDashboardStats = async (userId: string): Promise<DashboardStats>
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
     // Forms growth
-    const recentForms = forms?.filter((form: FormWithViews) => 
+    const recentForms = forms?.filter((form: FormWithCreatedAt) => 
       new Date(form.created_at) >= thirtyDaysAgo
     ).length || 0;
     
-    const previousForms = forms?.filter((form: FormWithViews) => {
+    const previousForms = forms?.filter((form: FormWithCreatedAt) => {
       const createdAt = new Date(form.created_at);
       return createdAt >= sixtyDaysAgo && createdAt < thirtyDaysAgo;
     }).length || 0;
@@ -116,14 +126,13 @@ export const getDashboardStats = async (userId: string): Promise<DashboardStats>
 
 export const getFormStats = async (formId: string) => {
   try {
-    // Get form data including views
-    const { data: form, error: formError } = await supabase
-      .from('forms')
-      .select('total_views')
-      .eq('id', formId)
-      .single();
+    // Get actual view count from form_views table
+    const { data: viewsData, error: viewsError } = await supabase
+      .from('form_views')
+      .select('id')
+      .eq('form_id', formId);
 
-    if (formError) throw formError;
+    if (viewsError) throw viewsError;
 
     // Get form submissions
     const { data: submissions, error } = await supabase
@@ -134,20 +143,21 @@ export const getFormStats = async (formId: string) => {
 
     if (error) throw error;
 
-    interface FormWithTotalViews {
-      total_views: number;
-    }
-
     interface SubmissionWithTime {
       submitted_at: string;
       completion_time_seconds?: number | null;
+      data?: Record<string, unknown>;
     }
 
-    const totalSubmissions = submissions?.length || 0;
-    const totalViews = (form as unknown as FormWithTotalViews)?.total_views || 0;
+    // Type assertion for submissions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const typedSubmissions = (submissions || []) as any[];
+
+    const totalSubmissions = typedSubmissions.length;
+    const totalViews = viewsData?.length || 0;
     
     // Calculate submissions by date for trends
-    const submissionsByDate = submissions?.reduce((acc: Record<string, number>, submission: SubmissionWithTime) => {
+    const submissionsByDate = typedSubmissions.reduce((acc: Record<string, number>, submission: SubmissionWithTime) => {
       const date = new Date(submission.submitted_at).toISOString().split('T')[0];
       acc[date] = (acc[date] || 0) + 1;
       return acc;
@@ -157,7 +167,7 @@ export const getFormStats = async (formId: string) => {
     const conversionRate = totalViews > 0 ? (totalSubmissions / totalViews) * 100 : 0;
 
     // Calculate average completion time
-    const completionTimes = submissions?.filter((s: SubmissionWithTime) => s.completion_time_seconds && s.completion_time_seconds > 0).map((s: SubmissionWithTime) => s.completion_time_seconds as number) || [];
+    const completionTimes = typedSubmissions.filter((s: SubmissionWithTime) => s.completion_time_seconds && s.completion_time_seconds > 0).map((s: SubmissionWithTime) => s.completion_time_seconds as number);
     const avgCompletionSeconds = completionTimes.length > 0 
       ? completionTimes.reduce((a, b) => a + b, 0) / completionTimes.length 
       : 0;
@@ -176,18 +186,54 @@ export const getFormStats = async (formId: string) => {
     const fourteenDaysAgo = new Date();
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
 
-    const recentSubmissions = submissions?.filter((s: SubmissionWithTime) => 
+    const recentSubmissions = typedSubmissions.filter((s: SubmissionWithTime) => 
       new Date(s.submitted_at) >= sevenDaysAgo
-    ).length || 0;
+    ).length;
     
-    const previousSubmissions = submissions?.filter((s: SubmissionWithTime) => {
+    const previousSubmissions = typedSubmissions.filter((s: SubmissionWithTime) => {
       const submittedAt = new Date(s.submitted_at);
       return submittedAt >= fourteenDaysAgo && submittedAt < sevenDaysAgo;
-    }).length || 0;
+    }).length;
 
     const submissionsGrowth = previousSubmissions > 0 
       ? ((recentSubmissions - previousSubmissions) / previousSubmissions) * 100 
       : recentSubmissions > 0 ? 100 : 0;
+
+    // Calculate drop-off points by analyzing incomplete fields
+    const dropOffPoints = [];
+    if (typedSubmissions && typedSubmissions.length > 0) {
+      // Get form structure to analyze fields
+      const { data: formData } = await supabase
+        .from('forms')
+        .select('fields')
+        .eq('id', formId)
+        .single();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const formDataAny = formData as any;
+      if (formDataAny?.fields && Array.isArray(formDataAny.fields)) {
+        const fields = formDataAny.fields as Array<{ id: string; label: string; required?: boolean }>;
+        
+        for (const field of fields) {
+          if (field.required) {
+            // Count how many submissions are missing this required field
+            const missingCount = typedSubmissions.filter((sub: any) => {
+              const data = sub.data as Record<string, unknown>;
+              return !data[field.id] && !data[field.label];
+            }).length;
+            
+            const dropOffRate = totalSubmissions > 0 ? (missingCount / totalSubmissions) * 100 : 0;
+            
+            if (dropOffRate > 0) {
+              dropOffPoints.push({
+                fieldName: field.label,
+                dropOffRate: Math.round(dropOffRate * 10) / 10
+              });
+            }
+          }
+        }
+      }
+    }
 
     return {
       totalSubmissions,
@@ -196,12 +242,12 @@ export const getFormStats = async (formId: string) => {
       completionRate: Math.round(completionRate * 10) / 10,
       avgCompletionTime,
       submissionsByDate,
-      submissions: submissions || [],
+      submissions: typedSubmissions,
       submissionsGrowth: Math.round(submissionsGrowth * 10) / 10,
       viewsGrowth: 0, // Would need historical view data
       conversionGrowth: 0, // Would need historical conversion data
       completionTimeGrowth: 0, // Would need historical completion time data
-      dropOffPoints: [], // Would need field-level tracking
+      dropOffPoints: dropOffPoints.sort((a, b) => b.dropOffRate - a.dropOffRate).slice(0, 5), // Top 5 drop-off points
     };
   } catch (error) {
     console.error('Error fetching form stats:', error);

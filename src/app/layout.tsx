@@ -12,6 +12,7 @@ import {
 import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Toaster } from "sonner";
+import { ErrorBoundaryHandler } from "@/components/error-boundary";
 
 const anekTamil = Anek_Tamil({
   variable: "--font-anek-tamil",
@@ -73,6 +74,7 @@ export default function RootLayout({
         className={`${anekTamil.variable} ${inter.variable} ${roboto.variable} ${openSans.variable} ${lato.variable} ${montserrat.variable} ${poppins.variable} ${rubik.variable} antialiased`}
       >
         <AuthProvider>
+          <ErrorBoundaryHandler />
           {children}
           <Toaster 
             position="top-right" 

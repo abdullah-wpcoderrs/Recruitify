@@ -36,6 +36,7 @@ import { PageLoader } from "@/components/ui/page-loader";
 import { getForm } from "@/lib/database";
 import { getFormStats } from "@/lib/analytics";
 import { useEffect } from "react";
+import { logger } from "@/lib/logger";
 
 interface FormAnalyticsProps {
   formId: string;
@@ -156,8 +157,11 @@ const calculateFieldAnalytics = (field: FormField, submissions: Submission[]): F
     }
   }
 
-  console.log(`Field "${field.label}" (${field.type}): ${responses} responses using key "${matchingKey}"`);
-  console.log('Available submission keys:', submissions.length > 0 ? Object.keys(submissions[0].data || {}) : 'No submissions');
+  logger.debug('Field analytics calculated', { 
+    fieldLabel: field.label, 
+    fieldType: field.type, 
+    responseCount: responses 
+  });
 
   if (field.type === 'select' && field.options && matchingKey) {
     // Calculate analytics for select fields

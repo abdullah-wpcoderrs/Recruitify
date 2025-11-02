@@ -72,7 +72,7 @@ export function DropdownMenu({ children, trigger, align = "end", side = "bottom"
   const handleTriggerClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Dropdown trigger clicked, current state:', isOpen);
+    // Dropdown state toggled
     setIsOpen(prev => !prev);
   };
 

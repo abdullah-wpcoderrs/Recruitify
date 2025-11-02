@@ -347,11 +347,14 @@ export const getSpreadsheetInfo = async (userId: string, spreadsheetId: string) 
       range: 'Responses!A:Z',
     });
 
+    const totalRows = values.data.values?.length || 0;
+    const dataRows = Math.max(0, totalRows - 1); // Subtract header row
+    
     return {
       info: {
         title: response.data.properties?.title,
         url: response.data.spreadsheetUrl,
-        rowCount: values.data.values?.length || 0,
+        rowCount: dataRows,
         lastUpdated: new Date().toISOString(),
       },
       error: null,

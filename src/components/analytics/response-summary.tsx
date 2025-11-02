@@ -52,15 +52,25 @@ export function ResponseSummary({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {dropOffPoints.map((point, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">{point.fieldName}</span>
-                  <span className="text-sm font-medium text-red-600">{point.dropOffRate}%</span>
+            {dropOffPoints && dropOffPoints.length > 0 ? (
+              dropOffPoints.map((point, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">{point.fieldName}</span>
+                    <span className="text-sm font-medium text-red-600">{point.dropOffRate}%</span>
+                  </div>
+                  <Progress value={point.dropOffRate} className="h-2" />
                 </div>
-                <Progress value={point.dropOffRate} className="h-2" />
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-400 mb-2">📊</div>
+                <p className="text-sm text-gray-500">No drop-off data available</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Drop-off analysis requires forms with required fields and submissions
+                </p>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>

@@ -32,6 +32,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to track view' }, { status: 500 });
     }
 
+    // Also increment the total_views counter in the forms table for backward compatibility
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updateError } = await (supabase as any)
+      .rpc('increment_form_views', { form_id: formId });
+
+    if (updateError) {
+      console.error('Error updating form views counter:', updateError);
+      // Don't fail the request if this fails, as the main tracking worked
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error processing view tracking:', error);

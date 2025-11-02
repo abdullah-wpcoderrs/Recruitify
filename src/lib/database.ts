@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { FormField, FormStep, FormDesign, FormSettings } from '@/components/form-builder/form-builder';
 import { Json, Database } from '@/types/database';
+import { logger } from './logger';
 
 export interface DatabaseForm {
   id: string;
@@ -30,7 +31,7 @@ export const createForm = async (formData: {
   settings: FormSettings;
   user_id: string;
 }) => {
-  console.log('Creating form with data:', formData);
+  logger.debug('Form creation initiated', { userId: formData.user_id });
   
   const insertData: Database['public']['Tables']['forms']['Insert'] = {
     title: formData.title,
@@ -55,7 +56,7 @@ export const createForm = async (formData: {
   if (error) {
     console.error('Database error:', error);
   } else {
-    console.log('Form created successfully:', data);
+    logger.formCreated(data.id, formData.user_id);
   }
 
   return { data: data ? data[0] : null, error };
@@ -130,24 +131,12 @@ export const getUserForms = async (userId: string) => {
 };
 
 export const getForm = async (formId: string) => {
-  // Try to get by custom slug first, then by ID
-  let { data, error } = await supabase
+  // Query by ID only (custom_slug column doesn't exist yet in database)
+  const { data, error } = await supabase
     .from('forms')
     .select('*')
-    .eq('custom_slug', formId)
+    .eq('id', formId)
     .single();
-
-  // If not found by custom slug, try by ID
-  if (error || !data) {
-    const result = await supabase
-      .from('forms')
-      .select('*')
-      .eq('id', formId)
-      .single();
-    
-    data = result.data;
-    error = result.error;
-  }
 
   return { data, error };
 };

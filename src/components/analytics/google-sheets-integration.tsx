@@ -179,7 +179,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
 
 
   const handleCreateSheet = async () => {
-    if (!form) return;
+    if (!form || !_user) return;
     
     setConnecting(true);
     setError(null);
@@ -192,6 +192,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
+          userId: _user.id,
           title: `${form.title} - Responses`,
           headers,
         }),
@@ -218,7 +219,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
       return;
     }
 
-    if (!form) {
+    if (!form || !_user) {
       setError('Form data not available');
       return;
     }
@@ -234,6 +235,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
+          userId: _user.id,
           spreadsheetUrl: existingSheetUrl,
           headers,
         }),
@@ -261,7 +263,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
   };
 
   const handleConnectFromList = async (spreadsheet: UserSpreadsheet) => {
-    if (!form) {
+    if (!form || !_user) {
       setError('Form data not available');
       return;
     }
@@ -278,6 +280,7 @@ export function GoogleSheetsIntegration({ formId }: GoogleSheetsIntegrationProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           formId,
+          userId: _user.id,
           spreadsheetId: spreadsheet.id,
           sheetName: `${form.title} - Responses`,
           headers,

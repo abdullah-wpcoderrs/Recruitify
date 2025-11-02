@@ -248,7 +248,7 @@ function DashboardContent() {
                   stats?.totalForms || 0
                 )}
               </div>
-              <p className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600">
                 {loading ? (
                   <div className="h-3 w-32 bg-gray-200 animate-pulse rounded mt-1"></div>
                 ) : stats?.formsGrowth !== undefined ? (
@@ -256,7 +256,7 @@ function DashboardContent() {
                 ) : (
                   'No data yet'
                 )}
-              </p>
+              </div>
             </CardContent>
           </Card>
           
@@ -273,7 +273,7 @@ function DashboardContent() {
                   stats?.totalSubmissions || 0
                 )}
               </div>
-              <p className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600">
                 {loading ? (
                   <div className="h-3 w-32 bg-gray-200 animate-pulse rounded mt-1"></div>
                 ) : stats?.submissionsGrowth !== undefined ? (
@@ -281,7 +281,7 @@ function DashboardContent() {
                 ) : (
                   'No submissions yet'
                 )}
-              </p>
+              </div>
             </CardContent>
           </Card>
           
@@ -298,7 +298,7 @@ function DashboardContent() {
                   `${stats?.conversionRate || 0}%`
                 )}
               </div>
-              <p className="text-xs text-gray-600">
+              <div className="text-xs text-gray-600">
                 {loading ? (
                   <div className="h-3 w-32 bg-gray-200 animate-pulse rounded mt-1"></div>
                 ) : stats?.conversionGrowth !== undefined ? (
@@ -306,7 +306,7 @@ function DashboardContent() {
                 ) : (
                   'Based on current data'
                 )}
-              </p>
+              </div>
             </CardContent>
           </Card>
         </div>
