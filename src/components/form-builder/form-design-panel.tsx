@@ -36,7 +36,25 @@ const fontOptions = [
   { name: 'Open Sans', value: 'Open Sans, sans-serif' },
   { name: 'Lato', value: 'Lato, sans-serif' },
   { name: 'Montserrat', value: 'Montserrat, sans-serif' },
+  { name: 'Poppins', value: 'Poppins, sans-serif' },
+  { name: 'Rubik', value: 'Rubik, sans-serif' },
 ];
+
+// Font mapping function
+const getFontFamily = (fontValue: string) => {
+  const fontMap: Record<string, string> = {
+    'system': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    'Inter, sans-serif': 'var(--font-inter), Inter, sans-serif',
+    'Roboto, sans-serif': 'var(--font-roboto), Roboto, sans-serif',
+    'Open Sans, sans-serif': 'var(--font-open-sans), "Open Sans", sans-serif',
+    'Lato, sans-serif': 'var(--font-lato), Lato, sans-serif',
+    'Montserrat, sans-serif': 'var(--font-montserrat), Montserrat, sans-serif',
+    'Poppins, sans-serif': 'var(--font-poppins), Poppins, sans-serif',
+    'Rubik, sans-serif': 'var(--font-rubik), Rubik, sans-serif',
+  };
+  
+  return fontMap[fontValue] || fontValue;
+};
 
 export function FormDesignPanel({ 
   design, 
@@ -281,9 +299,7 @@ export function FormDesignPanel({
                 backgroundColor: design.backgroundColor,
                 color: design.textColor,
                 borderRadius: `${design.borderRadius}px`,
-                fontFamily: design.fontFamily === 'system' 
-                  ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-                  : design.fontFamily
+                fontFamily: getFontFamily(design.fontFamily || 'system')
               }}
             >
               {design.logoUrl && (
